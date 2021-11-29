@@ -1,0 +1,13 @@
+{
+    "Lua.diagnostics.globals": [
+        "Game"
+    ],
+    "Lua.diagnostics.disable": [
+        "undefined-global"
+    ],
+    "Lua.runtime.version": "LuaJIT",
+    "Lua.workspace.preloadFileSize": 15360,
+    "Lua.workspace.library": [
+        "D:\\Dokumente\\Programming\\cp77\\cet-lua-lib"
+    ]
+}
