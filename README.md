@@ -1,6 +1,9 @@
+
+
 # Native Settings
 A small mod for Cyberpunk 2077 that allows other mods to easily add settings options to a custom, fully native UI `Mods` settings menu. User-friendly and fully controller compatible.
 
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/main.gif)
 ### How to use:
 1. CET Version 1.18+ is required
 2. Either add this mod to your mod's requirement list (Nexus link), or ship it with your mod (Credits to either this or the nexus page)
@@ -10,6 +13,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	```
 
 ### Add a new tab:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/tabs.gif)
 - Multiple mods can share the same tab
 - `path` should be a `/` followed by a simple keyword.
 - `label` is what will be displayed
@@ -18,6 +22,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	```
 
 ### Add a new subcategory:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/sub.PNG)
 - Use subcategories to organize options
 -  `path` should be your mods tab path (e.g. `/myMod`), followed by a `/`, followed by a simple keyword.
 - `label` is what will be displayed
@@ -27,7 +32,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 ## Adding option widgets:
 - All option widgets can be added to either a tab directly (Provide the tab path), or a tab's subcategory (Provide full path)
 
-#### Parameters each widget has:
+#### Parameters every widget has:
 - `path` : Where the widget goes, e.g. `/myMod` or `/myMod/sub`
 - `label` : What gets displayed to the left of the widget
 - `desc` : A description of what the option does, gets displayed when hovered over
@@ -35,6 +40,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - `defaultValue` : This is what the option's default value should be, gets set when the `Defaults` button is hit
 - `callback` : Here, you pass a function `f(value)` that gets called when the options gets changed. It gets called with a single parameter, the updated value
 ### Toggle:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/switch.gif)
 - This adds a basic true/false switch
 - Datatype is `boolean`
 	```lua
@@ -46,6 +52,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	end)
 	```
 ### Slider Int:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/int.gif)
 - This adds a slider, that can only get set to whole numbers
 - Datatype is `int`
 - `min` : This is the minimum value of the slider
@@ -60,6 +67,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	end)
 	```
 ### Slider Float:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/float.gif)
 - This adds a slider, that can be set to any value
 - Datatype is `float` (`int` also works)
 - `min` : This is the minimum value of the slider
@@ -75,6 +83,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	end)
 	```
 ### String List:
+![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/list.gif)
 - This adds a list of strings, that can be chosen of
 - Datatype is `table`
 - The table must be numerical indexed
@@ -128,4 +137,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 		end
 		ImGui.End()
 	end)
-		```
+	```
+#### Credits:
+- [psiberx](https://github.com/psiberx) for answering all my questions, as well as doing a lot of work on CET that makes this mod even work
+- nim for hating ImGui
