@@ -113,7 +113,9 @@ registerForEvent("onInit", function()
                 category.groupPath = tostring("/" .. tab.path)
                 category.isEmpty = false
 
-                for _, sub in pairs(tab.subcategories) do
+                for _, k in pairs(tab.keys) do
+                    local sub = tab.subcategories[k]
+
                     local currentSubcategory = SettingsCategory.new()
                     currentSubcategory.label = sub.label
                     currentSubcategory.groupPath = tostring("/" .. tab.path .. "/" .. sub.path)
@@ -282,6 +284,7 @@ function nativeSettings.addTab(path, label) -- Use this to add a new tab to the 
     tab.label = label
     tab.options = {}
     tab.subcategories = {}
+    tab.keys = {}
 
     CName.add(label)
     CName.add(tostring("/" .. path))
@@ -309,6 +312,7 @@ function nativeSettings.addSubcategory(path, label) -- Add a subcategory (Dark s
     CName.add(path)
 
     nativeSettings.data[tabPath].subcategories[subPath] = category
+    nativeSettings.data[tabPath].keys[#nativeSettings.data[tabPath].keys + 1] = subPath
 end
 
 function nativeSettings.addSwitch(path, label, desc, currentState, defaultState, callback) -- Call this to add a toggle switch
