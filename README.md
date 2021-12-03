@@ -6,7 +6,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 ![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/main.gif)
 ### How to use:
 1. CET Version 1.18+ is required
-2. Either add this mod to your mod's requirement list (Nexus link), or ship it with your mod (Credits to either this or the nexus page)
+2. Either add this mod to your mod's requirement list ([Nexus page](https://www.nexusmods.com/cyberpunk2077/mods/3518)), or ship it with your mod (Credits to either this or the nexus page)
 3. Import it into your mod:
 	```lua
 	nativeSettings = GetMod("nativeSettings")
