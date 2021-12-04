@@ -1,7 +1,7 @@
 local nativeSettings = {
     data = {},
     fromMods = false,
-    minCETVersion = 1.18001
+    minCETVersion = 1.180000
 }
 
 registerForEvent("onInit", function()
