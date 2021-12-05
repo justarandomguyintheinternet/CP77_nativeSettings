@@ -35,8 +35,8 @@ registerForEvent("onInit", function()
         wrapped()
     end)
 
-    Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, label) -- Add "Mods" menu button
-        if label == "Additional Content" then
+    Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, _, spawnEvent) -- Add "Mods" menu button
+        if spawnEvent.value == "OnSwitchToDlc" then
             this:AddMenuItem("Mods", "OnSwitchToSettings")
         end
     end)
