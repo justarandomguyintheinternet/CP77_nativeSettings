@@ -30,4 +30,9 @@ registerForEvent("onInit", function()
         print("Changed LIST STRING to ", list[value])
         -- Add in any logic you need in here, such as saving the changed to file / database
     end)
+
+    nativeSettings.addButton("/myMod/sub", "Button", "Description", "Button label", 45, function()
+        print("User clicked BUTTON")
+        -- Add any logic you need in here, such as calling a function from your mod
+    end)
 end)

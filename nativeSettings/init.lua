@@ -1,7 +1,11 @@
 local nativeSettings = {
     data = {},
     fromMods = false,
-    minCETVersion = 1.180000
+    minCETVersion = 1.180000,
+    settingsMainController = nil,
+    pressedButtons = {},
+    version = 1.2,
+    Cron = require("Cron")
 }
 
 registerForEvent("onInit", function()
@@ -19,6 +23,8 @@ registerForEvent("onInit", function()
     Observe("SettingsMainGameController", "OnInitialize", function (this) -- Hide buttons
         if not nativeSettings.fromMods then return end
 
+        nativeSettings.settingsMainController = this
+
         local rootWidget = this:GetRootCompoundWidget()
 		local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "controller_btn"}))
         button:SetVisible(false)
@@ -31,6 +37,11 @@ registerForEvent("onInit", function()
     end)
 
     Override("SettingsMainGameController", "ShowBrightnessScreen", function(_, wrapped) -- Disable brightness button functionality
+        if nativeSettings.fromMods then return end
+        wrapped()
+    end)
+
+    Override("SettingsMainGameController", "ShowControllerScreen", function(_, wrapped) -- Disable controller screen
         if nativeSettings.fromMods then return end
         wrapped()
     end)
@@ -52,6 +63,7 @@ registerForEvent("onInit", function()
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
         nativeSettings.fromMods = false
+        nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
     end)
 
@@ -85,7 +97,7 @@ registerForEvent("onInit", function()
             if labelString:len() == 0 then
                 labelString = label.value
             end
-            inkTextRef.SetText(this.label, labelString)
+            this.label:SetText(labelString)
         else
             wrapped(label)
         end
@@ -132,28 +144,30 @@ registerForEvent("onInit", function()
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods then
 
-            this.settingsElements = {}
-            inkCompoundRef.RemoveAllChildren(this.settingsOptionsList)
-            inkWidgetRef.SetVisible(this.descriptionText, false)
+                this.settingsElements = {}
+                this.settingsOptionsList:RemoveAllChildren()
+                this.descriptionText:SetVisible(false)
 
-            if idx < 0 then
-                idx = this.selectorCtrl:GetToggledIndex()
-            end
-
-            local settingsCategory = this.data[idx + 1]
-
-            nativeSettings.clearControllers()
-            nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
-
-            for _, v in pairs(settingsCategory.subcategories) do
-                local settingsSubCategory = v
-                local categoryController = this:SpawnFromLocal(inkWidgetRef.Get(this.settingsOptionsList), "settingsCategory"):GetController()
-                if IsDefined(categoryController) then
-                    categoryController:Setup(settingsSubCategory.label)
+                if idx < 0 then
+                    idx = this.selectorCtrl:GetToggledIndex()
                 end
-                nativeSettings.populateOptions(this, settingsCategory.groupPath.value, settingsSubCategory.groupPath.value) -- Add custom options to subcategories
-            end
-            this.selectorCtrl:SetSelectedIndex(idx)
+
+                local settingsCategory = this.data[idx + 1]
+
+                nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
+                    nativeSettings.clearControllers()
+                    nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
+                    for _, v in pairs(settingsCategory.subcategories) do
+                        local settingsSubCategory = v
+                        local categoryController = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsCategory"):GetController()
+                        if IsDefined(categoryController) then
+                            categoryController:Setup(settingsSubCategory.label)
+                        end
+                        nativeSettings.populateOptions(this, settingsCategory.groupPath.value, settingsSubCategory.groupPath.value) -- Add custom options to subcategories
+                    end
+                end)
+
+                this.selectorCtrl:SetSelectedIndex(idx)
         else
             wrapped(idx)
         end
@@ -163,8 +177,8 @@ registerForEvent("onInit", function()
         if nativeSettings.fromMods then
             local currentItem = evt:GetCurrentTarget():GetController()
             local data = nativeSettings.getOptionTable(currentItem)
-            inkTextRef.SetText(this.descriptionText, data.desc)
-            inkWidgetRef.SetVisible(this.descriptionText, true)
+            this.descriptionText:SetText(data.desc)
+            this.descriptionText:SetVisible(true)
         end
     end)
 
@@ -172,19 +186,35 @@ registerForEvent("onInit", function()
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
         data.state = not data.state
-        inkWidgetRef.SetVisible(this.onState, data.state)
-        inkWidgetRef.SetVisible(this.offState, not data.state)
+        this.onState:SetVisible(data.state)
+        this.offState:SetVisible(not data.state)
         data.callback(data.state)
     end)
 
     Override("SettingsSelectorControllerInt", "Refresh", function (this, wrapped) -- Handle slider drag int
         if nativeSettings.fromMods then
-            local sliderController = inkWidgetRef.GetControllerByType(this.sliderWidget, "inkSliderController")
+            local sliderController = this.sliderWidget:GetControllerByType("inkSliderController")
             local data = nativeSettings.getOptionTable(this)
+            if data.currentValue == this.newValue then return end
             data.currentValue = this.newValue
             data.callback(data.currentValue)
-            inkTextRef.SetText(this.ValueText, tostring(this.newValue))
+            this.ValueText:SetText(tostring(this.newValue))
             sliderController:ChangeValue(math.floor(this.newValue))
+        else
+            wrapped()
+        end
+    end)
+
+    Override("SettingsSelectorControllerInt", "ChangeValue", function (this, forward, wrapped) -- Handle slider int hold a/d
+        if nativeSettings.fromMods then
+            local data = nativeSettings.getOptionTable(this)
+            if forward then
+                this.newValue = this.newValue + data.step
+            else
+                this.newValue = this.newValue - data.step
+            end
+            this.newValue = math.max(math.min(data.max, this.newValue), data.min)
+            this:Refresh()
         else
             wrapped()
         end
@@ -204,12 +234,28 @@ registerForEvent("onInit", function()
 
     Override("SettingsSelectorControllerFloat", "Refresh", function (this, wrapped) -- Handle slider drag float
         if nativeSettings.fromMods then
-            local sliderController = inkWidgetRef.GetControllerByType(this.sliderWidget, "inkSliderController")
+            local sliderController = this.sliderWidget:GetControllerByType("inkSliderController")
             local data = nativeSettings.getOptionTable(this)
+            if data.currentValue == this.newValue then return end
             data.currentValue = this.newValue
             data.callback(data.currentValue)
-            inkTextRef.SetText(this.ValueText, string.format(data.format, this.newValue))
+            this.ValueText:SetText(string.format(data.format, this.newValue))
             sliderController:ChangeValue(this.newValue)
+        else
+            wrapped()
+        end
+    end)
+
+    Override("SettingsSelectorControllerFloat", "ChangeValue", function (this, forward, wrapped) -- Handle slider float hold a / d
+        if nativeSettings.fromMods then
+            local data = nativeSettings.getOptionTable(this)
+            if forward then
+                this.newValue = this.newValue + data.step
+            else
+                this.newValue = this.newValue - data.step
+            end
+            this.newValue = math.max(math.min(data.max, this.newValue), data.min)
+            this:Refresh()
         else
             wrapped()
         end
@@ -243,11 +289,31 @@ registerForEvent("onInit", function()
             data.selectedElementIndex = #data.elements
         end
 
-        inkTextRef.SetText(this.ValueText, tostring(data.elements[data.selectedElementIndex]))
+        this.ValueText:SetText(tostring(data.elements[data.selectedElementIndex]))
         this:SelectDot(data.selectedElementIndex - 1)
 
         data.callback(data.selectedElementIndex)
     end)
+
+    Observe('SettingsSelectorControllerBool', 'OnShortcutPress', function(this) -- Handle button widget press
+		if not nativeSettings.fromMods then return end
+        local data = nativeSettings.getOptionTable(this)
+
+        if data.type ~= "button" then return end
+        if nativeSettings.pressedButtons[tostring(data)] then return end
+
+        nativeSettings.pressedButtons[tostring(data)] = true
+        nativeSettings.Cron.NextTick(function ()
+            nativeSettings.pressedButtons[tostring(data)] = nil
+        end)
+
+		local audioEvent = SoundPlayEvent.new() -- Play click sound
+	    audioEvent = SoundPlayEvent.new ()
+	    audioEvent.soundName = "ui_menu_onpress"
+	    Game.GetPlayer():QueueEvent(audioEvent)
+
+        data.callback()
+	end)
 
     Override("SettingsMainGameController", "RequestRestoreDefaults", function (this, wrapped) -- Handle reset settings
         if nativeSettings.fromMods then
@@ -258,12 +324,16 @@ registerForEvent("onInit", function()
 
             local settingsCategory = (this.data[this.selectorCtrl:GetToggledIndex() + 1].groupPath.value):gsub("/", "")
             for _, o in pairs(nativeSettings.data[settingsCategory].options) do
-                nativeSettings.setOption(o, o.defaultValue)
+                if o.defaultValue then
+                    nativeSettings.setOption(o, o.defaultValue)
+                end
             end
 
             for _, sub in pairs(nativeSettings.data[settingsCategory].subcategories) do
                 for _, o in pairs(sub.options) do
-                    nativeSettings.setOption(o, o.defaultValue)
+                    if o.defaultValue then
+                        nativeSettings.setOption(o, o.defaultValue)
+                    end
                 end
             end
         else
@@ -272,6 +342,10 @@ registerForEvent("onInit", function()
     end)
 
     print("[NativeSettings] NativeSettings lib initialized!")
+end)
+
+registerForEvent("onUpdate", function(deltaTime)
+    nativeSettings.Cron.Update(deltaTime)
 end)
 
 -- Functions for regular use by other mods:
@@ -292,7 +366,7 @@ function nativeSettings.addTab(path, label) -- Use this to add a new tab to the 
     nativeSettings.data[path] = tab
 end
 
-function nativeSettings.addSubcategory(path, label) -- Add a subcategory (Dark strip with a name) to a Tab. e.g "/path/subPath" (Path from addTab, followed by a simple identifier)
+function nativeSettings.addSubcategory(path, label, optionalIndex) -- Add a subcategory (Dark strip with a name) to a Tab. e.g "/path/subPath" (Path from addTab, followed by a simple identifier)
     local tabPath = path:match("/.*/"):gsub("/", "")
     local subPath = path:gsub(tabPath, ""):gsub("/", "")
 
@@ -312,10 +386,54 @@ function nativeSettings.addSubcategory(path, label) -- Add a subcategory (Dark s
     CName.add(path)
 
     nativeSettings.data[tabPath].subcategories[subPath] = category
-    nativeSettings.data[tabPath].keys[#nativeSettings.data[tabPath].keys + 1] = subPath
+
+    local idx = optionalIndex or #nativeSettings.data[tabPath].keys + 1
+    table.insert(nativeSettings.data[tabPath].keys, idx, subPath)
 end
 
-function nativeSettings.addSwitch(path, label, desc, currentState, defaultState, callback) -- Call this to add a toggle switch
+function nativeSettings.removeSubcategory(path) -- Removes entire subcategory, requires path to it. Call refresh() once afterwards
+    local tabPath = path:match("/.*/"):gsub("/", "")
+    local subPath = path:gsub(tabPath, ""):gsub("/", "")
+
+    local validPath, state = nativeSettings.pathExists(tostring("/" .. tabPath))
+
+    if not validPath or state ~= 1 then
+        print(string.format("[NativeSettings] Tried to remove subcategory with invalid path: \"%s\"", path))
+        return
+    end
+
+    if nativeSettings.data[tabPath].subcategories[subPath] == nil then
+        return
+    end
+
+    nativeSettings.data[tabPath].subcategories[subPath] = nil
+    nativeSettings.data[tabPath].keys[nativeSettings.getIndex(nativeSettings.data[tabPath].keys, subPath)] = nil
+end
+
+function nativeSettings.removeOption(tab) -- Remove option widget, needs option table. Call refresh() ONCE after you removed all the options you want
+    local success = false
+
+    local _, state, tabPath, subPath = nativeSettings.pathExists(tab.fullPath)
+
+    if state == 0 then -- From subcategory
+        local i = nativeSettings.getIndex(nativeSettings.data[tabPath].subcategories[subPath].options, tab)
+        if not i then return end
+        nativeSettings.data[tabPath].subcategories[subPath].options[i] = nil
+        success = true
+    else -- From main tab
+        local i = nativeSettings.getIndex(nativeSettings.data[tabPath].options, tab)
+        if not i then return end
+        nativeSettings.data[tabPath].options[i] = nil
+        success = true
+    end
+
+    if not success then
+        print(string.format("[NativeSettings] Tried to remove option with invalid option table: \"%s\"", tab.label))
+        return
+    end
+end
+
+function nativeSettings.addSwitch(path, label, desc, currentState, defaultState, callback, optionalIndex) -- Call this to add a toggle switch
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
 
     if not validPath then
@@ -323,20 +441,22 @@ function nativeSettings.addSwitch(path, label, desc, currentState, defaultState,
         return
     end
 
-    local switch = {type = "switch", path = path, label = label, desc = desc, state = currentState, defaultValue = defaultState, callback = callback, controller = nil}
+    local switch = {type = "switch", path = path, label = label, desc = desc, state = currentState, defaultValue = defaultState, callback = callback, controller = nil, fullPath = path}
 
     if state == 0 then -- Add to subcategory
         switch.path = subPath
-        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, switch)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, switch)
     else -- Add to main tab
         switch.path = tabPath
-        table.insert(nativeSettings.data[tabPath].options, switch)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, switch)
     end
 
     return switch
 end
 
-function nativeSettings.addRangeInt(path, label, desc, min, max, step, currentValue, defaultValue, callback)
+function nativeSettings.addRangeInt(path, label, desc, min, max, step, currentValue, defaultValue, callback, optionalIndex) -- Call this to add a range int widget
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
 
     if not validPath then
@@ -344,20 +464,22 @@ function nativeSettings.addRangeInt(path, label, desc, min, max, step, currentVa
         return
     end
 
-    local range = {type = "rangeInt", path = path, label = label, desc = desc, min = min, max = max, step = math.floor(step), currentValue = currentValue, defaultValue = defaultValue, callback = callback, controller = nil}
+    local range = {type = "rangeInt", path = path, label = label, desc = desc, min = min, max = max, step = math.floor(step), currentValue = currentValue, defaultValue = defaultValue, callback = callback, controller = nil, fullPath = path}
 
     if state == 0 then -- Add to subcategory
         range.path = subPath
-        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, range)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, range)
     else -- Add to main tab
         range.path = tabPath
-        table.insert(nativeSettings.data[tabPath].options, range)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, range)
     end
 
     return range
 end
 
-function nativeSettings.addRangeFloat(path, label, desc, min, max, step, format, currentValue, defaultValue, callback)
+function nativeSettings.addRangeFloat(path, label, desc, min, max, step, format, currentValue, defaultValue, callback, optionalIndex) -- Call this to add a range float widget
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
 
     if not validPath then
@@ -365,20 +487,22 @@ function nativeSettings.addRangeFloat(path, label, desc, min, max, step, format,
         return
     end
 
-    local range = {type = "rangeFloat", path = path, label = label, desc = desc, min = min, max = max, step = step, format = format, currentValue = currentValue, defaultValue = defaultValue, callback = callback, controller = nil}
+    local range = {type = "rangeFloat", path = path, label = label, desc = desc, min = min, max = max, step = step, format = format, currentValue = currentValue, defaultValue = defaultValue, callback = callback, controller = nil, fullPath = path}
 
     if state == 0 then -- Add to subcategory
         range.path = subPath
-        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, range)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, range)
     else -- Add to main tab
         range.path = tabPath
-        table.insert(nativeSettings.data[tabPath].options, range)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, range)
     end
 
     return range
 end
 
-function nativeSettings.addSelectorString(path, label, desc, elements, selectedElementIndex, defaultSelectedElementIndex, callback)
+function nativeSettings.addSelectorString(path, label, desc, elements, selectedElementIndex, defaultSelectedElementIndex, callback, optionalIndex) -- Call this to add a string selector widget
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
 
     if not validPath then
@@ -386,17 +510,42 @@ function nativeSettings.addSelectorString(path, label, desc, elements, selectedE
         return
     end
 
-    local selector = {type = "selectorString", path = path, label = label, desc = desc, elements = elements, selectedElementIndex = selectedElementIndex, defaultValue = defaultSelectedElementIndex, callback = callback, controller = nil}
+    local selector = {type = "selectorString", path = path, label = label, desc = desc, elements = elements, selectedElementIndex = selectedElementIndex, defaultValue = defaultSelectedElementIndex, callback = callback, controller = nil, fullPath = path}
 
     if state == 0 then -- Add to subcategory
         selector.path = subPath
-        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, selector)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, selector)
     else -- Add to main tab
         selector.path = tabPath
-        table.insert(nativeSettings.data[tabPath].options, selector)
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, selector)
     end
 
     return selector
+end
+
+function nativeSettings.addButton(path, label, desc, buttonText, textSize, callback, optionalIndex) -- Call this to add a button widget
+    local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
+
+    if not validPath then
+        print(string.format("[NativeSettings] Path provided to the \"%s\" button is not valid!", label))
+        return
+    end
+
+    local button = {type = "button", path = path, label = label, desc = desc, buttonText = buttonText, textSize = textSize, callback = callback, controller = nil, fullPath = path}
+
+    if state == 0 then -- Add to subcategory
+        button.path = subPath
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, button)
+    else -- Add to main tab
+        button.path = tabPath
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, button)
+    end
+
+    return button
 end
 
 function nativeSettings.pathExists(path) -- Check if a path exists, return a boolean (Other returns can be ignored). Useful if you want to have two independet mods adding their options to the same tab
@@ -424,42 +573,54 @@ function nativeSettings.setOption(tab, value) -- Use this to set an options valu
             success = true
             if o.type == "switch" then
                 if type(value) == "boolean" then
+                    if o.state == value then return end
                     o.state = value
                     o.callback(o.state)
                     if o.controller then
-                        inkWidgetRef.SetVisible(o.controller.onState, o.state)
-                        inkWidgetRef.SetVisible(o.controller.offState, not o.state)
+                        o.controller.onState:SetVisible(o.state)
+                        o.controller.offState:SetVisible(not o.state)
                     end
                 else
                     print(string.format("[NativeSettings] Invalid data type passed for setOption \"%s\" : %s, expected: boolean", tab.label, type(value)))
                 end
             elseif o.type == "rangeInt"then
                 if type(value) == "number" then
+                    if o.currentValue == value then return end
                     o.currentValue = value
+                    o.callback(o.currentValue)
                     if o.controller then
                         o.controller.newValue = o.currentValue
-                        o.controller:Refresh()
+
+                        local sliderController = o.controller.sliderWidget:GetControllerByType("inkSliderController")
+                        o.controller.ValueText:SetText(tostring(o.controller.newValue))
+                        sliderController:ChangeValue(math.floor(o.controller.newValue))
                     end
                 else
                     print(string.format("[NativeSettings] Invalid data type passed for setOption \"%s\" : %s, expected: number", tab.label, type(value)))
                 end
             elseif o.type == "rangeFloat"then
                 if type(value) == "number" then
+                    if o.currentValue == value then return end
                     o.currentValue = value
+                    o.callback(o.currentValue)
                     if o.controller then
                         o.controller.newValue = o.currentValue
-                        o.controller:Refresh()
+
+                        local sliderController = o.controller.sliderWidget:GetControllerByType("inkSliderController")
+                        o.controller.ValueText:SetText(string.format(o.format, o.controller.newValue))
+                        sliderController:ChangeValue(o.controller.newValue)
                     end
                 else
                     print(string.format("[NativeSettings] Invalid data type passed for setOption \"%s\" : %s, expected: number", tab.label, type(value)))
                 end
             elseif o.type == "selectorString"then
                 if type(value) == "number" then
+                    if o.selectedElementIndex == value then return end
                     local idx = math.max(1, math.min(value, #o.elements))
                     o.selectedElementIndex = value
                     o.callback(o.selectedElementIndex)
                     if o.controller then
-                        inkTextRef.SetText(o.controller.ValueText, tostring(o.elements[idx]))
+                        o.controller.ValueText:SetText(tostring(o.elements[idx]))
                         o.controller:SelectDot(idx - 1)
                     end
                 else
@@ -470,6 +631,14 @@ function nativeSettings.setOption(tab, value) -- Use this to set an options valu
     end
 
     if not success then print(string.format("[NativeSettings] Could not set the option for \"%s\" correctly, the provided options table could not be found!", tab.label)) end
+end
+
+function nativeSettings.refresh() -- Refreshes the UI, e.g. after adding / removing widgets
+    if not nativeSettings.fromMods then return end
+    if not nativeSettings.settingsMainController then return end
+    nativeSettings.clearControllers()
+    nativeSettings.settingsMainController:PopulateSettingsData()
+    nativeSettings.settingsMainController:PopulateCategorySettingsOptions(-1)
 end
 
 ------------- Mod functions, no need to touch those --------------------------
@@ -486,6 +655,8 @@ function nativeSettings.populateOptions(this, categoryPath, subCategoryPath) -- 
                 nativeSettings.spawnRangeFloat(this, option)
             elseif option.type == "selectorString" then
                 nativeSettings.spawnStringList(this, option)
+            elseif option.type == "button" then
+                nativeSettings.spawnButton(this, option)
             end
         end
     else
@@ -498,23 +669,25 @@ function nativeSettings.populateOptions(this, categoryPath, subCategoryPath) -- 
                 nativeSettings.spawnRangeFloat(this, option)
             elseif option.type == "selectorString" then
                 nativeSettings.spawnStringList(this, option)
+            elseif option.type == "button" then
+                nativeSettings.spawnButton(this, option)
             end
         end
     end
 end
 
 function nativeSettings.spawnRangeInt(this, option)
-    local currentItem = this:SpawnFromLocal(inkWidgetRef.Get(this.settingsOptionsList), "settingsSelectorInt"):GetController()
+    local currentItem = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsSelectorInt"):GetController()
     currentItem.LabelText:SetText(option.label)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
 
-    currentItem.sliderController = inkWidgetRef.GetControllerByType(currentItem.sliderWidget, "inkSliderController")
+    currentItem.sliderController = currentItem.sliderWidget:GetControllerByType("inkSliderController")
     currentItem.sliderController:Setup(option.min, option.max, option.currentValue, option.step)
     currentItem.sliderController:RegisterToCallback("OnSliderValueChanged", currentItem, "OnSliderValueChanged")
     currentItem.sliderController:RegisterToCallback("OnSliderHandleReleased", currentItem, "OnHandleReleased")
     currentItem.newValue = option.currentValue
-    inkTextRef.SetText(currentItem.ValueText, tostring(option.currentValue))
+    currentItem.ValueText:SetText(tostring(option.currentValue))
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -522,17 +695,17 @@ function nativeSettings.spawnRangeInt(this, option)
 end
 
 function nativeSettings.spawnRangeFloat(this, option)
-    local currentItem = this:SpawnFromLocal(inkWidgetRef.Get(this.settingsOptionsList), "settingsSelectorFloat"):GetController()
+    local currentItem = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsSelectorFloat"):GetController()
     currentItem.LabelText:SetText(option.label)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
 
-    currentItem.sliderController = inkWidgetRef.GetControllerByType(currentItem.sliderWidget, "inkSliderController")
+    currentItem.sliderController = currentItem.sliderWidget:GetControllerByType("inkSliderController")
     currentItem.sliderController:Setup(option.min, option.max, option.currentValue, option.step)
     currentItem.sliderController:RegisterToCallback("OnSliderValueChanged", currentItem, "OnSliderValueChanged")
     currentItem.sliderController:RegisterToCallback("OnSliderHandleReleased", currentItem, "OnHandleReleased")
     currentItem.newValue = option.currentValue
-    inkTextRef.SetText(currentItem.ValueText, string.format(option.format, option.currentValue))
+    currentItem.ValueText:SetText(string.format(option.format, option.currentValue))
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -540,7 +713,7 @@ function nativeSettings.spawnRangeFloat(this, option)
 end
 
 function nativeSettings.spawnStringList(this, option)
-    local currentItem = this:SpawnFromLocal(inkWidgetRef.Get(this.settingsOptionsList), "settingsSelectorStringList"):GetController()
+    local currentItem = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsSelectorStringList"):GetController()
 
     currentItem.LabelText:SetText(option.label)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
@@ -549,7 +722,7 @@ function nativeSettings.spawnStringList(this, option)
     currentItem:PopulateDots(#option.elements)
     currentItem:SelectDot(option.selectedElementIndex - 1)
 
-    inkTextRef.SetText(currentItem.ValueText, option.elements[option.selectedElementIndex])
+    currentItem.ValueText:SetText(option.elements[option.selectedElementIndex])
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -557,12 +730,43 @@ function nativeSettings.spawnStringList(this, option)
 end
 
 function nativeSettings.spawnSwitch(this, option)
-    local currentItem = this:SpawnFromLocal(inkWidgetRef.Get(this.settingsOptionsList), "settingsSelectorBool"):GetController()
+    local currentItem = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsSelectorBool"):GetController()
     currentItem.LabelText:SetText(option.label)
-    inkWidgetRef.SetVisible(currentItem.onState, option.state)
-    inkWidgetRef.SetVisible(currentItem.offState, not option.state)
+    currentItem.onState:SetVisible(option.state)
+    currentItem.offState:SetVisible(not option.state)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
+    this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
+
+    option.controller = currentItem
+end
+
+function nativeSettings.spawnButton(this, option)
+    local currentItem = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsSelectorBool"):GetController()
+    currentItem.LabelText:SetText(option.label)
+    currentItem.onState:SetVisible(false)
+    currentItem.offState:SetVisible(false)
+    currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
+    currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
+
+    local anchor = inkCanvas.new()
+    anchor:SetAnchorPoint(Vector2.new({ X = 0.5, Y = 0.5 }))
+    anchor:SetInteractive(true)
+    anchor:SetMargin(inkMargin.new({ left = 760.0, top = 38.0, right = 0.0, bottom = 0.0 }))
+    anchor:Reparent(currentItem:GetRootWidget():GetWidgetByPath(BuildWidgetPath({ 'layout', "container"})), -1)
+
+    local text = inkText.new()
+    text:SetFontFamily('base\\gameplay\\gui\\fonts\\raj\\raj.inkfontfamily')
+    text:SetFontStyle('Medium')
+    text:SetFontSize(option.textSize)
+    text:SetLetterCase(textLetterCase.OriginalCase)
+    text:SetTintColor(HDRColor.new({ Red = 1.1761, Green = 0.3809, Blue = 0.3476, Alpha = 1.0 }))
+    text:SetAnchor(inkEAnchor.Fill)
+    text:SetHorizontalAlignment(textHorizontalAlignment.Center)
+    text:SetVerticalAlignment(textVerticalAlignment.Center)
+    text:SetText(option.buttonText)
+    text:Reparent(anchor, -1)
+
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
     option.controller = currentItem
@@ -573,6 +777,16 @@ function nativeSettings.nativeInsert(nTable, value)
     table.insert(t, value)
 
     return t
+end
+
+function nativeSettings.getIndex(tab, val)
+    local index = nil
+    for i, v in pairs(tab) do
+		if v == val then
+			index = i
+		end
+    end
+    return index
 end
 
 function nativeSettings.isSameInstance(a, b) -- Credits to psiberx for this
