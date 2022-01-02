@@ -118,14 +118,14 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 ## Removing options / subcategories:
 - Option widgets as well as subcategories can be added or removed while the UI is active
 - Use this in combination with the `optionalIndex` parameter of any `addOption` function to add and remove options where they are needed
-### Subcategory:
+### Options:
 - `optionTable` is what gets returned by any `addOption` function (switch/int/float/list/button)
 - Call `refresh` once after removing an option, when removing many options at the same time, make sure to only call `refresh` once after all options have been removed
 	```lua
 	-- Parameters: optionTable
 	nativeSettings.removeOption(optionTable)
 	```
-### Subcategory:
+### Subcategories:
 - `path` is the full path to the subcategory you want to remove
 - Call `refresh` once after removing a subcategory
 	```lua
@@ -148,7 +148,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - `value` is the value you want to set
 - Example:
 	```lua
-	local settingsTables = {} -- An epmty tables to store the return from the addOption functions, in case we want to use setOption(), can be ignored otherwise
+	local settingsTables = {} -- An empty table to store the return from the addOption functions, in case we want to use setOption() or removeOption(), can be ignored otherwise
 	local switchState = false -- Would usually get loaded from a config file / database
 	local nativeSettings
 
@@ -163,7 +163,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 		nativeSettings.addTab("/myMod", "My mod") -- Add our mods tab (path, label)
 		nativeSettings.addSubcategory("/myMod/sub", "A subcategory") -- Optional: Add a subcategory (path, label), you can add as many as you want
 
-		settingsTables["switch"] = nativeSettings.addSwitch("/myMod/sub", "Switch", "Description", switchState, true, function(state)
+		settingsTables["switch"] = nativeSettings.addSwitch("/myMod/sub", "Switch", "Description", switchState, true, function(state) -- Setup a switch, and store its returned table
 			print("Changed SWITCH to ", state)
 			switchState = state
 		end)
