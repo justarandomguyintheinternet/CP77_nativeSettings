@@ -4,7 +4,7 @@ local nativeSettings = {
     minCETVersion = 1.180000,
     settingsMainController = nil,
     pressedButtons = {},
-    version = 1.2,
+    version = 1.3,
     Cron = require("Cron")
 }
 
@@ -216,7 +216,7 @@ registerForEvent("onInit", function()
             this.newValue = math.max(math.min(data.max, this.newValue), data.min)
             this:Refresh()
         else
-            wrapped()
+            wrapped(forward)
         end
     end)
 
@@ -257,7 +257,7 @@ registerForEvent("onInit", function()
             this.newValue = math.max(math.min(data.max, this.newValue), data.min)
             this:Refresh()
         else
-            wrapped()
+            wrapped(forward)
         end
     end)
 
