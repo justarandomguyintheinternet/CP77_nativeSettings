@@ -852,16 +852,12 @@ function nativeSettings.callCurrentTabSaveCallback()
     end
 end
 
-function nativeSettings.loadSettings(filename, defaultSettings)
-    print("Loading settings from ", filename, "...")
-
+function nativeSettings.loadSettingsFile(file, defaultSettings)
     local settings = {}
 
     for k,v in pairs(defaultSettings) do
         settings[k] = v
     end
-
-    local file = io.open(filename, "r")
 
     if file then
         local newsettings = json.decode( file:read("*a") )
@@ -876,14 +872,26 @@ function nativeSettings.loadSettings(filename, defaultSettings)
     return settings
 end
 
+function nativeSettings.loadSettings(filename, defaultSettings)
+    print("Loading settings from ", filename, "...")
+
+    local file = io.open(filename, "r")
+
+    return nativeSettings.loadSettingsFile(file, defaultSettings)
+end
+
+function nativeSettings.saveSettingsFile(file, settings)
+    file:write( json.encode(settings) )
+
+    file:close()
+end
+
 function nativeSettings.saveSettings(filename, settings)
     print("Saving settings to ", filename, "...")
 
     local file = io.open(filename, "w")
 
-    file:write( json.encode(settings) )
-
-    file:close()
+    nativeSettings.saveSettingsFile(file, settings)
 end
 
 return nativeSettings
