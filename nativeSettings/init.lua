@@ -1,6 +1,6 @@
 local nativeSettings = {
     data = {},
-	currentdata = -1,
+	currenTabPath = nil,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -64,6 +64,7 @@ registerForEvent("onInit", function()
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
 		nativeSettings.callCurrentTabSaveCallback()
+		nativeSettings.currenTabPath = nil
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -155,9 +156,9 @@ registerForEvent("onInit", function()
                     idx = this.selectorCtrl:GetToggledIndex()
                 end
 
-				nativeSettings.currentdata = idx + 1
+                local settingsCategory = this.data[idx + 1]
 
-                local settingsCategory = this.data[nativeSettings.currentdata]
+				nativeSettings.currenTabPath = string.sub( NameToString(settingsCategory.groupPath), 2 ) -- Remove leading slash
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -842,14 +843,11 @@ function nativeSettings.clearControllers() -- Prevent crashes by releasing it fr
 end
 
 function nativeSettings.callCurrentTabSaveCallback()
-	print("Trying to save current tab...")
+	if nativeSettings.currenTabPath then
+		local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
 
-	if nativeSettings.currentdata >= 0 then
-		print("  Current tab: ", nativeSettings.currentdata, " / ", table.getn(nativeSettings.data))
-
-		local currtab =  nativeSettings.data[ nativeSettings.currentdata ]
-		if currtab and currtab.savecallback then
-			currtab.savecallback()
+		if tab then
+			tab.savecallback()
 		end
 	end
 end
