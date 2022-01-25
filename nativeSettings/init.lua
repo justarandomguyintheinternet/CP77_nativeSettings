@@ -1,5 +1,6 @@
 local nativeSettings = {
     data = {},
+	currentdata = -1,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -62,6 +63,7 @@ registerForEvent("onInit", function()
 
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
+		nativeSettings.callCurrentTabSaveCallback()
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -143,6 +145,7 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods then
+				nativeSettings.callCurrentTabSaveCallback()
 
                 this.settingsElements = {}
                 this.settingsOptionsList:RemoveAllChildren()
@@ -152,7 +155,9 @@ registerForEvent("onInit", function()
                     idx = this.selectorCtrl:GetToggledIndex()
                 end
 
-                local settingsCategory = this.data[idx + 1]
+				nativeSettings.currentdata = idx + 1
+
+                local settingsCategory = this.data[nativeSettings.currentdata]
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -350,12 +355,13 @@ end)
 
 -- Functions for regular use by other mods:
 
-function nativeSettings.addTab(path, label) -- Use this to add a new tab to the Menu. Path must look like this: "/path" ("/" followed by a simple identifier)
+function nativeSettings.addTab(path, label, optionalSaveCallback) -- Use this to add a new tab to the Menu. Path must look like this: "/path" ("/" followed by a simple identifier)
     path = path:gsub("/", "")
 
     local tab = {}
     tab.path = path
     tab.label = label
+	tab.savecallback = optionalSaveCallback
     tab.options = {}
     tab.subcategories = {}
     tab.keys = {}
@@ -833,6 +839,53 @@ function nativeSettings.clearControllers() -- Prevent crashes by releasing it fr
     for _, option in pairs(nativeSettings.getAllOptions()) do
         option.controller = nil
     end
+end
+
+function nativeSettings.callCurrentTabSaveCallback()
+	print("Trying to save current tab...")
+
+	if nativeSettings.currentdata >= 0 then
+		print("  Current tab: ", nativeSettings.currentdata, " / ", table.getn(nativeSettings.data))
+
+		local currtab =  nativeSettings.data[ nativeSettings.currentdata ]
+		if currtab and currtab.savecallback then
+			currtab.savecallback()
+		end
+	end
+end
+
+function nativeSettings.loadSettings(filename, defaultSettings)
+	print("Loading settings from ", filename, "...")
+
+	local settings = {}
+
+	for k,v in pairs(defaultSettings) do
+		settings[k] = v
+	end
+
+	local file = io.open(filename, "r")
+
+	if file then
+		local newsettings = json.decode( file:read("*a") )
+
+		file:close()
+
+		for k,v in pairs(newsettings) do
+			settings[k] = v
+		end
+	end
+
+	return settings
+end
+
+function nativeSettings.saveSettings(filename, settings)
+	print("Saving settings to ", filename, "...")
+
+	local file = io.open(filename, "w")
+
+	file:write( json.encode(settings) )
+
+	file:close()
 end
 
 return nativeSettings
