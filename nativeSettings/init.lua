@@ -1,6 +1,6 @@
 local nativeSettings = {
     data = {},
-	currenTabPath = nil,
+    currenTabPath = nil,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -27,7 +27,7 @@ registerForEvent("onInit", function()
         nativeSettings.settingsMainController = this
 
         local rootWidget = this:GetRootCompoundWidget()
-		local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "controller_btn"}))
+        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "controller_btn"}))
         button:SetVisible(false)
 
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "brightness_btn"}))
@@ -63,8 +63,8 @@ registerForEvent("onInit", function()
 
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
-		nativeSettings.callCurrentTabSaveCallback()
-		nativeSettings.currenTabPath = nil
+        nativeSettings.callCurrentTabSaveCallback()
+        nativeSettings.currenTabPath = nil
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -146,7 +146,7 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods then
-				nativeSettings.callCurrentTabSaveCallback()
+                nativeSettings.callCurrentTabSaveCallback()
 
                 this.settingsElements = {}
                 this.settingsOptionsList:RemoveAllChildren()
@@ -158,7 +158,7 @@ registerForEvent("onInit", function()
 
                 local settingsCategory = this.data[idx + 1]
 
-				nativeSettings.currenTabPath = string.sub( NameToString(settingsCategory.groupPath), 2 ) -- Remove leading slash
+                nativeSettings.currenTabPath = string.sub( NameToString(settingsCategory.groupPath), 2 ) -- Remove leading slash
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -302,7 +302,7 @@ registerForEvent("onInit", function()
     end)
 
     Observe('SettingsSelectorControllerBool', 'OnShortcutPress', function(this) -- Handle button widget press
-		if not nativeSettings.fromMods then return end
+        if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
 
         if data.type ~= "button" then return end
@@ -313,13 +313,13 @@ registerForEvent("onInit", function()
             nativeSettings.pressedButtons[tostring(data)] = nil
         end)
 
-		local audioEvent = SoundPlayEvent.new() -- Play click sound
-	    audioEvent = SoundPlayEvent.new ()
-	    audioEvent.soundName = "ui_menu_onpress"
-	    Game.GetPlayer():QueueEvent(audioEvent)
+        local audioEvent = SoundPlayEvent.new() -- Play click sound
+        audioEvent = SoundPlayEvent.new ()
+        audioEvent.soundName = "ui_menu_onpress"
+        Game.GetPlayer():QueueEvent(audioEvent)
 
         data.callback()
-	end)
+    end)
 
     Override("SettingsMainGameController", "RequestRestoreDefaults", function (this, wrapped) -- Handle reset settings
         if nativeSettings.fromMods then
@@ -362,7 +362,7 @@ function nativeSettings.addTab(path, label, optionalSaveCallback) -- Use this to
     local tab = {}
     tab.path = path
     tab.label = label
-	tab.savecallback = optionalSaveCallback
+    tab.savecallback = optionalSaveCallback
     tab.options = {}
     tab.subcategories = {}
     tab.keys = {}
@@ -789,15 +789,15 @@ end
 function nativeSettings.getIndex(tab, val)
     local index = nil
     for i, v in pairs(tab) do
-		if v == val then
-			index = i
-		end
+        if v == val then
+            index = i
+        end
     end
     return index
 end
 
 function nativeSettings.isSameInstance(a, b) -- Credits to psiberx for this
-	return Game['OperatorEqual;IScriptableIScriptable;Bool'](a, b)
+    return Game['OperatorEqual;IScriptableIScriptable;Bool'](a, b)
 end
 
 function nativeSettings.getOptionTable(optionController)
@@ -843,47 +843,47 @@ function nativeSettings.clearControllers() -- Prevent crashes by releasing it fr
 end
 
 function nativeSettings.callCurrentTabSaveCallback()
-	if nativeSettings.currenTabPath then
-		local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
+    if nativeSettings.currenTabPath then
+        local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
 
-		if tab then
-			tab.savecallback()
-		end
-	end
+        if tab then
+            tab.savecallback()
+        end
+    end
 end
 
 function nativeSettings.loadSettings(filename, defaultSettings)
-	print("Loading settings from ", filename, "...")
+    print("Loading settings from ", filename, "...")
 
-	local settings = {}
+    local settings = {}
 
-	for k,v in pairs(defaultSettings) do
-		settings[k] = v
-	end
+    for k,v in pairs(defaultSettings) do
+        settings[k] = v
+    end
 
-	local file = io.open(filename, "r")
+    local file = io.open(filename, "r")
 
-	if file then
-		local newsettings = json.decode( file:read("*a") )
+    if file then
+        local newsettings = json.decode( file:read("*a") )
 
-		file:close()
+        file:close()
 
-		for k,v in pairs(newsettings) do
-			settings[k] = v
-		end
-	end
+        for k,v in pairs(newsettings) do
+            settings[k] = v
+        end
+    end
 
-	return settings
+    return settings
 end
 
 function nativeSettings.saveSettings(filename, settings)
-	print("Saving settings to ", filename, "...")
+    print("Saving settings to ", filename, "...")
 
-	local file = io.open(filename, "w")
+    local file = io.open(filename, "w")
 
-	file:write( json.encode(settings) )
+    file:write( json.encode(settings) )
 
-	file:close()
+    file:close()
 end
 
 return nativeSettings
