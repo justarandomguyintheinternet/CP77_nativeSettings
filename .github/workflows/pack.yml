@@ -1,0 +1,25 @@
+name: pack
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup folder
+        run: |
+          cd ${{ github.workspace }}
+          sudo mkdir -p /packed/bin/x64/plugins/cyber_engine_tweaks/mods/
+      - name: Copy files
+        run: |
+          sudo cp -r nativeSettings /packed/bin/x64/plugins/cyber_engine_tweaks/mods/
+      - name: Upload zip
+        uses: actions/upload-artifact@v2
+        with:
+            name: nativeSettingsLatest
+            path: /packed/
