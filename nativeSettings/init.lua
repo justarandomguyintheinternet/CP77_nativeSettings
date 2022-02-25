@@ -1095,13 +1095,13 @@ function nativeSettings.restoreScrollPos()
 end
 
 function nativeSettings.callCurrentTabClosedCallback()
-	if nativeSettings.currenTabPath then
-		local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
+    if nativeSettings.currenTabPath then
+        local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
 
-		if tab then
-			tab.closedCallback()
-		end
-	end
+        if tab and tab.closedCallback then
+            tab.closedCallback()
+        end
+    end
 end
 
 return nativeSettings
