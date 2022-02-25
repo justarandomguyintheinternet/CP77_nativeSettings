@@ -1,6 +1,6 @@
 local nativeSettings = {
     data = {},
-	currentData = -1,
+	currenTabPath = nil,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -73,6 +73,7 @@ registerForEvent("onInit", function()
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
 		nativeSettings.callCurrentTabClosedCallback()
+		nativeSettings.currenTabPath = nil
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -166,9 +167,9 @@ registerForEvent("onInit", function()
                     idx = this.selectorCtrl:GetToggledIndex()
                 end
 
-				nativeSettings.closedCallback = idx + 1
+                local settingsCategory = this.data[idx + 1]
 
-                local settingsCategory = this.data[nativeSettings.currentData]
+				nativeSettings.currenTabPath = string.sub( NameToString(settingsCategory.groupPath), 2 ) -- Remove leading slash
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -1094,10 +1095,11 @@ function nativeSettings.restoreScrollPos()
 end
 
 function nativeSettings.callCurrentTabClosedCallback()
-	if nativeSettings.currentData >= 0 then
-		local currtab =  nativeSettings.data[ nativeSettings.currentData ]
-		if currtab and currtab.closedCallback then
-			currtab.closedCallback()
+	if nativeSettings.currenTabPath then
+		local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
+
+		if tab then
+			tab.closedCallback()
 		end
 	end
 end
