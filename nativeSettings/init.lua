@@ -1,5 +1,6 @@
 local nativeSettings = {
     data = {},
+	currentData = -1,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -71,6 +72,7 @@ registerForEvent("onInit", function()
 
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
+		nativeSettings.callCurrentTabClosedCallback()
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -154,6 +156,7 @@ registerForEvent("onInit", function()
         if nativeSettings.fromMods then
                 this:PopulateSettingsData()
                 nativeSettings.saveScrollPos()
+				nativeSettings.callCurrentTabClosedCallback()
 
                 this.settingsElements = {}
                 this.settingsOptionsList:RemoveAllChildren()
@@ -163,7 +166,9 @@ registerForEvent("onInit", function()
                     idx = this.selectorCtrl:GetToggledIndex()
                 end
 
-                local settingsCategory = this.data[idx + 1]
+				nativeSettings.closedCallback = idx + 1
+
+                local settingsCategory = this.data[nativeSettings.currentData]
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -376,12 +381,13 @@ end)
 
 -- Functions for regular use by other mods:
 
-function nativeSettings.addTab(path, label) -- Use this to add a new tab to the Menu. Path must look like this: "/path" ("/" followed by a simple identifier)
+function nativeSettings.addTab(path, label, optionalClosedCallback) -- Use this to add a new tab to the Menu. Path must look like this: "/path" ("/" followed by a simple identifier)
     path = path:gsub("/", "")
 
     local tab = {}
     tab.path = path
     tab.label = label
+	tab.closedCallback = optionalClosedCallback
     tab.options = {}
     tab.subcategories = {}
     tab.keys = {}
@@ -1085,6 +1091,15 @@ function nativeSettings.restoreScrollPos()
         local mainScrollArea = nativeSettings.settingsMainController:GetRootWidget():GetWidget(StringToName("wrapper/wrapper/MainScrollingArea"))
         mainScrollArea:GetController():SetScrollPosition(newPos)
     end)
+end
+
+function nativeSettings.callCurrentTabClosedCallback()
+	if nativeSettings.currentData >= 0 then
+		local currtab =  nativeSettings.data[ nativeSettings.currentData ]
+		if currtab and currtab.closedCallback then
+			currtab.closedCallback()
+		end
+	end
 end
 
 return nativeSettings
