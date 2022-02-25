@@ -698,6 +698,29 @@ function nativeSettings.addKeyBinding(path, label, desc, value, defaultValue, ca
     return keyBinding
 end
 
+function nativeSettings.addCustom(path, callback, optionalIndex) -- Call this to add a button widget
+    local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
+
+    if not validPath then
+        print("[NativeSettings] Path provided to the custom control is not valid!")
+        return
+    end
+
+    local custom = {type = "custom", path = path, callback = callback, controller = nil, fullPath = path}
+
+    if state == 0 then -- Add to subcategory
+        custom.path = subPath
+        local idx = optionalIndex or #nativeSettings.data[tabPath].subcategories[subPath].options + 1
+        table.insert(nativeSettings.data[tabPath].subcategories[subPath].options, idx, custom)
+    else -- Add to main tab
+        custom.path = tabPath
+        local idx = optionalIndex or #nativeSettings.data[tabPath].options + 1
+        table.insert(nativeSettings.data[tabPath].options, idx, custom)
+    end
+
+    return custom
+end
+
 function nativeSettings.pathExists(path) -- Check if a path exists, return a boolean (Other returns can be ignored). Useful if you want to have two independet mods adding their options to the same tab
     if path:match("/.*/.*") then
         local tabPath = path:match("/.*/"):gsub("/", "")
@@ -821,6 +844,8 @@ function nativeSettings.populateOptions(this, categoryPath, subCategoryPath) -- 
                 nativeSettings.spawnButton(this, option)
             elseif option.type == "keyBinding" then
                 nativeSettings.spawnKeyBinding(this, option)
+			elseif option.type == "custom" then
+				option.callback(this.settingsOptionsList.widget, option)
             end
         end
     else
@@ -838,6 +863,8 @@ function nativeSettings.populateOptions(this, categoryPath, subCategoryPath) -- 
                 nativeSettings.spawnButton(this, option)
             elseif option.type == "keyBinding" then
                 nativeSettings.spawnKeyBinding(this, option)
+			elseif option.type == "custom" then
+				option.callback(this.settingsOptionsList.widget, option)
             end
         end
     end
