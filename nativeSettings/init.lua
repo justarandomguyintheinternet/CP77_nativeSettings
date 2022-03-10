@@ -8,7 +8,7 @@ local nativeSettings = {
     currentTab = '',
     optionCount = 0,
     pressedButtons = {},
-    version = 1.4,
+    version = 1.5,
     Cron = require("Cron")
 }
 
