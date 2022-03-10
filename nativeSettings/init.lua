@@ -1,6 +1,6 @@
 local nativeSettings = {
     data = {},
-	currenTabPath = nil,
+	currentTabPath = nil,
     fromMods = false,
     minCETVersion = 1.180000,
     settingsMainController = nil,
@@ -73,7 +73,7 @@ registerForEvent("onInit", function()
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
         if not nativeSettings.fromMods then return end
 		nativeSettings.callCurrentTabClosedCallback()
-		nativeSettings.currenTabPath = nil
+		nativeSettings.currentTabPath = nil
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
@@ -169,7 +169,7 @@ registerForEvent("onInit", function()
 
                 local settingsCategory = this.data[idx + 1]
 
-				nativeSettings.currenTabPath = string.sub( NameToString(settingsCategory.groupPath), 2 ) -- Remove leading slash
+				nativeSettings.currentTabPath = string.sub(NameToString(settingsCategory.groupPath), 2) -- Remove leading slash
 
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
                     nativeSettings.clearControllers()
@@ -177,7 +177,7 @@ registerForEvent("onInit", function()
                     nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
                     for _, v in pairs(settingsCategory.subcategories) do
                         local settingsSubCategory = v
-                        
+
                         local _, _, _, widgetName = nativeSettings.pathExists(settingsSubCategory.groupPath.value)
                         local categoryWidget = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsCategory")
                         categoryWidget:SetName(StringToName(widgetName))
@@ -188,7 +188,7 @@ registerForEvent("onInit", function()
                         end
                         nativeSettings.populateOptions(this, settingsCategory.groupPath.value, settingsSubCategory.groupPath.value) -- Add custom options to subcategories
                     end
-                    
+
                     nativeSettings.restoreScrollPos()
                 end)
 
@@ -697,7 +697,7 @@ function nativeSettings.addKeyBinding(path, label, desc, value, defaultValue, ca
     return keyBinding
 end
 
-function nativeSettings.addCustom(path, callback, optionalIndex) -- Call this to add a button widget
+function nativeSettings.addCustom(path, callback, optionalIndex) -- Call this to add a "custom" widget
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
 
     if not validPath then
@@ -1121,8 +1121,8 @@ function nativeSettings.restoreScrollPos()
 end
 
 function nativeSettings.callCurrentTabClosedCallback()
-    if nativeSettings.currenTabPath then
-        local tab = nativeSettings.data[  nativeSettings.currenTabPath ]
+    if nativeSettings.currentTabPath then
+        local tab = nativeSettings.data[nativeSettings.currentTabPath]
 
         if tab and tab.closedCallback then
             tab.closedCallback()

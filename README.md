@@ -1,6 +1,5 @@
 
 
-
 # Native Settings
 A small mod for Cyberpunk 2077 that allows other mods to easily add settings options to a custom, fully native UI `Mods` settings menu. User-friendly and fully controller compatible.
 
@@ -16,10 +15,11 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 ### Add a new tab:
 ![](https://cdn.jsdelivr.net/gh/justarandomguyintheinternet/keanuWheeze/nativeSettingsImages/tabs.gif)
 - Multiple mods can share the same tab
-- `path` should be a `/` followed by a simple keyword.
+- `path` should be a `/` followed by a simple keyword
 - `label` is what will be displayed
+- `callbackFunction` is an optional function parameter that gets called when the tab gets closed
 	```lua
-	nativeSettings.addTab("/myMod", "My mod") -- Add a tab (path, label)
+	nativeSettings.addTab("/myMod", "My mod", callbackFunction()) -- Add a tab (path, label, callback)
 	```
 
 ### Add a new subcategory:
@@ -131,6 +131,18 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 		-- Add any logic you need in here, such as calling a function from your mod
 	end)
 	```
+### Custom Widget:
+- This is not a typical widget, i.e. it does not have any visible UI
+- It can be used to get a reference to the settings screen's main `inkCompoundWidget`
+- With this reference you can add your own custom widgets to the settings page, such as the [Furigana](https://github.com/dkollmann/cyberpunk2077-furigana) mod is doing
+- `inkCompoundWidget` is the [SettingsMainGameController](https://nativedb.red4ext.com/SettingsMainGameController)'s [settingsOptionsList ](https://nativedb.red4ext.com/inkCompoundWidgetReference) widget
+```lua
+-- Parameters: path, callback, optionalIndex
+
+	nativeSettings.addCustom("/myMod/sub", function(inkCompoundWidget)
+		-- Add any logic you need in here, such as adding custom UI to the inkCompoundWidget
+	end)
+```
 ## Removing options / subcategories:
 - Option widgets as well as subcategories can be added or removed while the UI is active
 - Use this in combination with the `optionalIndex` parameter of any `addOption` function to add and remove options where they are needed
@@ -159,7 +171,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - The nativeSettings mod only gets the settings values at the startup in form of the `currentValue`
 - If you modify any settings / options from e.g. a secondary ImGui settings window, the values displayed by nativeSettings will be out of sync
 - Use the `setOption(optionTable, value)` function if you change an option from outside the nativeSettings window, to make sure everything stays synced
-- `optionTable` is what gets returned by any `addOption` function (switch/int/float/list/keybind)
+- `optionTable` is what gets returned by any `addOption` function (switch/int/float/list)
 - `value` is the value you want to set
 - Example:
 	```lua
@@ -197,4 +209,5 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 #### Credits:
 - [psiberx](https://github.com/psiberx) for answering all my questions, as well as doing a lot of work on CET that makes this mod even work and creating `Cron.lua`.
 - [RMK](https://www.nexusmods.com/cyberpunk2077/users/84555803) for adding the keybind widget, making proper handling for adding and removing elements and generally helping with bugfixing
+- [dkollmann](https://github.com/dkollmann) for adding the "custom" widget type and implementing the optional callback for tabs
 - nim for hating ImGui
