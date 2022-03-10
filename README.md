@@ -159,7 +159,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - The nativeSettings mod only gets the settings values at the startup in form of the `currentValue`
 - If you modify any settings / options from e.g. a secondary ImGui settings window, the values displayed by nativeSettings will be out of sync
 - Use the `setOption(optionTable, value)` function if you change an option from outside the nativeSettings window, to make sure everything stays synced
-- `optionTable` is what gets returned by any `addOption` function (switch/int/float/list)
+- `optionTable` is what gets returned by any `addOption` function (switch/int/float/list/keybind)
 - `value` is the value you want to set
 - Example:
 	```lua

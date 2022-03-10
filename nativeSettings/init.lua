@@ -350,14 +350,14 @@ registerForEvent("onInit", function()
 
             local settingsCategory = (this.data[this.selectorCtrl:GetToggledIndex() + 1].groupPath.value):gsub("/", "")
             for _, o in pairs(nativeSettings.data[settingsCategory].options) do
-                if o.defaultValue then
+                if o.defaultValue ~= nil then
                     nativeSettings.setOption(o, o.defaultValue)
                 end
             end
 
             for _, sub in pairs(nativeSettings.data[settingsCategory].subcategories) do
                 for _, o in pairs(sub.options) do
-                    if o.defaultValue then
+                    if o.defaultValue ~= nil then
                         nativeSettings.setOption(o, o.defaultValue)
                     end
                 end
@@ -482,7 +482,6 @@ function nativeSettings.removeOption(tab) -- Remove option widget, needs option 
         end
 
         nativeSettings.data[tabPath].subcategories[subPath].options[i] = nil
-        table.remove(nativeSettings.data[tabPath].subcategories[subPath].options, i)
         success = true
     else -- From main tab
         local i = nativeSettings.getIndex(nativeSettings.data[tabPath].options, tab)
