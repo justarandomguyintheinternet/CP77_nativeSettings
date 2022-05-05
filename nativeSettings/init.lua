@@ -5,18 +5,19 @@ local nativeSettings = {
     minCETVersion = 1.180000,
     settingsMainController = nil,
     settingsOptionsList = nil,
-    currentTab = '',
+    currentTab = "",
+    currentOptionTable = nil, -- Used to cache the optionTable of the widget that is currently being modified
     optionCount = 0,
     pressedButtons = {},
-    version = 1.5,
+    version = 1.6,
     Cron = require("Cron")
 }
 
 registerForEvent("onInit", function()
     -- General setup things:
 
-    local cetVer = tonumber((GetVersion():gsub('^v(%d+)%.(%d+)%.(%d+)(.*)', function(major, minor, patch, wip) -- <-- This has been made by psiberx, all credits to him
-        return ('%d.%02d%02d%d'):format(major, minor, patch, (wip == '' and 0 or 1))
+    local cetVer = tonumber((GetVersion():gsub("^v(%d+)%.(%d+)%.(%d+)(.*)", function(major, minor, patch, wip) -- <-- This has been made by psiberx, all credits to him
+        return ("%d.%02d%02d%d"):format(major, minor, patch, (wip == "" and 0 or 1))
     end)))
 
     if cetVer < nativeSettings.minCETVersion then
@@ -30,13 +31,13 @@ registerForEvent("onInit", function()
         nativeSettings.settingsMainController = this
 
         local rootWidget = this:GetRootCompoundWidget()
-        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "controller_btn"}))
+        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "controller_btn"}))
         button:SetVisible(false)
 
-        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "brightness_btn"}))
+        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "brightness_btn"}))
         button:SetMargin(5000, 5000, 5000, 5000)
 
-        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ 'wrapper', 'extra', "hdr_btn"}))
+        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "hdr_btn"}))
         button:SetMargin(5000, 5000, 5000, 5000)
     end)
 
@@ -171,9 +172,9 @@ registerForEvent("onInit", function()
 
 				nativeSettings.currentTabPath = string.sub(NameToString(settingsCategory.groupPath), 2) -- Remove leading slash
 
+                nativeSettings.clearControllers()
                 nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
-                    nativeSettings.clearControllers()
-                    nativeSettings.currentTab = settingsCategory.groupPath.value:gsub('/', '')
+                    nativeSettings.currentTab = settingsCategory.groupPath.value:gsub("/", "")
                     nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
                     for _, v in pairs(settingsCategory.subcategories) do
                         local settingsSubCategory = v
@@ -320,7 +321,7 @@ registerForEvent("onInit", function()
         data.callback(data.selectedElementIndex)
     end)
 
-    Observe('SettingsSelectorControllerBool', 'OnShortcutPress', function(this) -- Handle button widget press
+    Observe("SettingsSelectorControllerBool", "OnShortcutPress", function(this) -- Handle button widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
@@ -333,6 +334,15 @@ registerForEvent("onInit", function()
             nativeSettings.pressedButtons[tostring(data)] = nil
         end)
 
+        local fill = this:GetRootWidget():GetWidgetByPath(BuildWidgetPath({ "layout", "container", "bk_fill"}))
+
+        fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0.3809, Blue = 0.3476, Alpha = 1.0 })) -- Button click visual feedback
+        nativeSettings.Cron.After(0.08, function ()
+            if not nativeSettings.fromMods then return end
+
+            fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0, Blue = 0, Alpha = 1.0 }))
+        end)
+
         local audioEvent = SoundPlayEvent.new() -- Play click sound
         audioEvent.soundName = "ui_menu_onpress"
         Game.GetPlayer():QueueEvent(audioEvent)
@@ -340,7 +350,7 @@ registerForEvent("onInit", function()
         data.callback()
     end)
 
-    Observe('SettingsSelectorControllerKeyBinding', 'SetValue', function(this, key) -- Handle keybinding widget press
+    Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
         data.value = NameToString(key)
@@ -980,11 +990,11 @@ function nativeSettings.spawnButton(this, option, idx)
     anchor:SetAnchorPoint(Vector2.new({ X = 0.5, Y = 0.5 }))
     anchor:SetInteractive(true)
     anchor:SetMargin(inkMargin.new({ left = 760.0, top = 38.0, right = 0.0, bottom = 0.0 }))
-    anchor:Reparent(currentItem:GetRootWidget():GetWidgetByPath(BuildWidgetPath({ 'layout', "container"})), -1)
+    anchor:Reparent(currentItem:GetRootWidget():GetWidgetByPath(BuildWidgetPath({ "layout", "container"})), -1)
 
     local text = inkText.new()
-    text:SetFontFamily('base\\gameplay\\gui\\fonts\\raj\\raj.inkfontfamily')
-    text:SetFontStyle('Medium')
+    text:SetFontFamily("base\\gameplay\\gui\\fonts\\raj\\raj.inkfontfamily")
+    text:SetFontStyle("Medium")
     text:SetFontSize(option.textSize)
     text:SetLetterCase(textLetterCase.OriginalCase)
     text:SetTintColor(HDRColor.new({ Red = 1.1761, Green = 0.3809, Blue = 0.3476, Alpha = 1.0 }))
@@ -1036,13 +1046,28 @@ function nativeSettings.getIndex(tab, val)
 end
 
 function nativeSettings.isSameInstance(a, b) -- Credits to psiberx for this
-    return Game['OperatorEqual;IScriptableIScriptable;Bool'](a, b)
+    if a == nil or b == nil then return false end
+    return Game["OperatorEqual;IScriptableIScriptable;Bool"](a, b)
 end
 
 function nativeSettings.getOptionTable(optionController)
+    if nativeSettings.currentOptionTable then
+        if nativeSettings.isSameInstance(nativeSettings.currentOptionTable.controller, optionController) then
+            return nativeSettings.currentOptionTable
+        else
+            return nil
+        end
+    end
+
     for _, tab in pairs(nativeSettings.data) do
         for _, o in pairs(tab.options) do
             if nativeSettings.isSameInstance(o.controller, optionController) then
+                if nativeSettings.currentOptionTable == nil then
+                    nativeSettings.currentOptionTable = o
+                    nativeSettings.Cron.NextTick(function ()
+                        nativeSettings.currentOptionTable = nil
+                    end)
+                end
                 return o
             end
         end
@@ -1050,6 +1075,12 @@ function nativeSettings.getOptionTable(optionController)
         for _, sub in pairs(tab.subcategories) do
             for _, o in pairs(sub.options) do
                 if nativeSettings.isSameInstance(o.controller, optionController) then
+                    if nativeSettings.currentOptionTable == nil then
+                        nativeSettings.currentOptionTable = o
+                        nativeSettings.Cron.NextTick(function ()
+                            nativeSettings.currentOptionTable = nil
+                        end)
+                    end
                     return o
                 end
             end
@@ -1079,11 +1110,11 @@ function nativeSettings.clearControllers() -- Prevent crashes by releasing it fr
     for _, option in pairs(nativeSettings.getAllOptions()) do
         option.controller = nil
     end
-    nativeSettings.currentTab = ''
+    nativeSettings.currentTab = ""
 end
 
 function nativeSettings.getNextOptionName() -- Generate unique names for widgets
-    local name = 'option_' .. nativeSettings.optionCount
+    local name = "option_" .. nativeSettings.optionCount
     nativeSettings.optionCount = nativeSettings.optionCount + 1
     return name
 end
