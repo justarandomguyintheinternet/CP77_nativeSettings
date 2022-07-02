@@ -153,7 +153,7 @@ registerForEvent("onInit", function()
                     table.insert(nativeSettings.tabSizeCache[#nativeSettings.tabSizeCache], name)
                 end
 
-                local nextButton = require("UIButton").Create("next", "—>") -- Create "Next" button
+                local nextButton = require("UIButton").Create("next", ">") -- Create "Next" button
                 nextButton.root:SetAffectsLayoutWhenHidden(true)
 			    nextButton:Reparent(bar, -1)
 
@@ -179,7 +179,7 @@ registerForEvent("onInit", function()
                 end
                 nativeSettings.nextButton = nextButton
 
-                local previousButton = require("UIButton").Create("previous", "<—")
+                local previousButton = require("UIButton").Create("previous", "<")
                 previousButton.root:SetAffectsLayoutWhenHidden(true)
 			    previousButton:Reparent(bar, 0)
 
