@@ -207,7 +207,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	end)
 	```
 #### Credits:
-- [psiberx](https://github.com/psiberx) for answering all my questions, as well as doing a lot of work on CET that makes this mod even work and creating `Cron.lua`.
+- [psiberx](https://github.com/psiberx) for answering all my questions, as well as doing a lot of work on CET that makes this mod even work and creating `Cron.lua`, `UIButton.lua`, `Ref.lua` and `EventProxy.lua`.
 - [RMK](https://www.nexusmods.com/cyberpunk2077/users/84555803) for adding the keybind widget, making proper handling for adding and removing elements and generally helping with bugfixing
 - [dkollmann](https://github.com/dkollmann) for adding the "custom" widget type and implementing the optional callback for tabs
 - nim for hating ImGui

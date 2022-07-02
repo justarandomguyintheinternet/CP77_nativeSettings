@@ -9,7 +9,12 @@ local nativeSettings = {
     currentOptionTable = nil, -- Used to cache the optionTable of the widget that is currently being modified
     optionCount = 0,
     pressedButtons = {},
-    version = 1.6,
+    tabSizeCache = nil,
+    currentPage = 1,
+    switchPage = false,
+    previousButton = nil,
+    nextButton = nil,
+    version = 1.7,
     Cron = require("Cron")
 }
 
@@ -78,6 +83,9 @@ registerForEvent("onInit", function()
         nativeSettings.fromMods = false
         nativeSettings.settingsMainController = nil
         nativeSettings.clearControllers()
+        nativeSettings.tabSizeCache = nil
+        nativeSettings.previousButton = nil
+        nativeSettings.nextButton = nil
     end)
 
     Override("SettingsMainGameController", "PopulateCategories", function (this, idx, wrapped) -- Override to remove "Not Localized" on tabs
@@ -90,18 +98,114 @@ registerForEvent("onInit", function()
                     if not newData.label or newData.label:len() == 0 then
                         newData.label = tostring(curCategoty.label.value)
                     end
-                    this.selectorCtrl:PushData(newData)
+
+                    if nativeSettings.tabSizeCache == nil then
+                        this.selectorCtrl:PushData(newData)
+                    elseif nativeSettings.getIndex(nativeSettings.tabSizeCache[nativeSettings.currentPage], newData.label) ~= nil then
+                        this.selectorCtrl:PushData(newData)
+                    end
                 end
             end
             this.selectorCtrl:Refresh()
-            if idx >= 0 and idx < #this.data then
-                this.selectorCtrl:SetToggledIndex(idx)
-            else
+
+            if nativeSettings.switchPage then -- Reset to first tab on page switch
+                nativeSettings.switchPage = false
                 this.selectorCtrl:SetToggledIndex(0)
+            else
+                if idx >= 0 and idx < #this.data then
+                    this.selectorCtrl:SetToggledIndex(idx)
+                else
+                    this.selectorCtrl:SetToggledIndex(0)
+                end
             end
         else
             wrapped(idx)
         end
+    end)
+
+    Observe("SettingsMainGameController", "PopulateCategories", function (this) -- Cache the tab name sizes, add buttons
+        if not nativeSettings.fromMods then return end
+        if nativeSettings.tabSizeCache ~= nil then return end
+
+        nativeSettings.Cron.NextTick(function ()
+            local bar = this:GetRootCompoundWidget():GetWidgetByPath(BuildWidgetPath({ "wrapper", "wrapper", "top_header", "wrapper", "center_holder"}))
+
+            local maxWidth = 1900
+            nativeSettings.tabSizeCache = {}
+            nativeSettings.tabSizeCache[1] = {}
+
+            if bar:GetDesiredWidth() < maxWidth then -- Only one page
+                for _, tab in pairs(nativeSettings.data) do
+                    table.insert(nativeSettings.tabSizeCache[1], tab.label)
+                end
+            else -- Multiple pages
+                local tabs = bar:GetWidgetByPath(BuildWidgetPath({ "menu_label_holder"}))
+                local totalWidth = 0
+
+                for i = 0, tabs:GetNumChildren() - 1 do -- Cache widths / generate pages
+                    local widget = tabs:GetWidget(i)
+                    totalWidth = totalWidth + widget:GetDesiredWidth()
+                    if totalWidth > maxWidth then
+                        totalWidth = 0
+                        nativeSettings.tabSizeCache[#nativeSettings.tabSizeCache + 1] = {}
+                    end
+                    local name = widget:GetWidgetByPath(BuildWidgetPath({ "txtValue"})):GetText()
+                    table.insert(nativeSettings.tabSizeCache[#nativeSettings.tabSizeCache], name)
+                end
+
+                local nextButton = require("UIButton").Create("next", "—>") -- Create "Next" button
+                nextButton.root:SetAffectsLayoutWhenHidden(true)
+			    nextButton:Reparent(bar, -1)
+
+                nextButton:RegisterCallback('OnRelease', function(_, evt) -- Next callback
+                    if evt:IsAction('click') then
+                        nativeSettings.currentPage = nativeSettings.currentPage + 1
+                        nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
+                        nativeSettings.switchPage = true
+
+                        if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
+                            nativeSettings.nextButton.root:SetVisible(false)
+                            nativeSettings.previousButton.root:SetVisible(true)
+                        else
+                            nativeSettings.nextButton.root:SetVisible(true)
+                            nativeSettings.previousButton.root:SetVisible(true)
+                        end
+
+                        this:PopulateCategories(this.settings:GetMenuIndex())
+                    end
+                end)
+                if nativeSettings.currentPage == #nativeSettings.tabSizeCache then -- For inital load
+                    nextButton.root:SetVisible(false)
+                end
+                nativeSettings.nextButton = nextButton
+
+                local previousButton = require("UIButton").Create("previous", "<—")
+                previousButton.root:SetAffectsLayoutWhenHidden(true)
+			    previousButton:Reparent(bar, 0)
+
+                previousButton:RegisterCallback('OnRelease', function(_, evt)
+                    if evt:IsAction('click') then
+                        nativeSettings.currentPage = nativeSettings.currentPage - 1
+                        nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
+                        nativeSettings.switchPage = true
+                        if nativeSettings.currentPage == 1 then
+                            nativeSettings.previousButton.root:SetVisible(false)
+                            nativeSettings.nextButton.root:SetVisible(true)
+                        else
+                            nativeSettings.nextButton.root:SetVisible(true)
+                            nativeSettings.previousButton.root:SetVisible(true)
+                        end
+                        this:PopulateCategories(this.settings:GetMenuIndex())
+                    end
+                end)
+                if nativeSettings.currentPage == 1 then
+                    previousButton.root:SetVisible(false)
+                end
+                nativeSettings.previousButton = previousButton
+
+                this:PopulateCategories(this.settings:GetMenuIndex()) -- Refresh
+            end
+        end)
     end)
 
     Override("SettingsCategoryController", "Setup", function (this, label, wrapped) -- Override to remove "Not Localized" on Subcategories
@@ -169,6 +273,13 @@ registerForEvent("onInit", function()
                 end
 
                 local settingsCategory = this.data[idx + 1]
+                if nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
+                    local n = idx
+                    for i = 1, nativeSettings.currentPage - 1 do
+                        n = n + #nativeSettings.tabSizeCache[i]
+                    end
+                    settingsCategory = this.data[n + 1]
+                end
 
 				nativeSettings.currentTabPath = string.sub(NameToString(settingsCategory.groupPath), 2) -- Remove leading slash
 
@@ -498,7 +609,7 @@ function nativeSettings.removeOption(tab) -- Remove option widget, needs option 
             nativeSettings.restoreScrollPos()
         end
 
-        nativeSettings.data[tabPath].subcategories[subPath].options[i] = nil
+        table.remove(nativeSettings.data[tabPath].subcategories[subPath].options, i)
         success = true
     else -- From main tab
         local i = nativeSettings.getIndex(nativeSettings.data[tabPath].options, tab)
