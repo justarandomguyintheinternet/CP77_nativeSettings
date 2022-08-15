@@ -316,6 +316,7 @@ registerForEvent("onInit", function()
         if nativeSettings.fromMods then
             local currentItem = evt:GetCurrentTarget():GetController()
             local data = nativeSettings.getOptionTable(currentItem)
+            if not data then return end
             this.descriptionText:SetText(data.desc)
             this.descriptionText:SetVisible(true)
         end
@@ -324,6 +325,7 @@ registerForEvent("onInit", function()
     Observe("SettingsSelectorControllerBool", "AcceptValue", function (this) -- Handle boolean switch click
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
+        if not data then return end
         data.state = not data.state
         this.onState:SetVisible(data.state)
         this.offState:SetVisible(not data.state)
@@ -334,6 +336,7 @@ registerForEvent("onInit", function()
         if nativeSettings.fromMods then
             local sliderController = this.sliderWidget:GetControllerByType("inkSliderController")
             local data = nativeSettings.getOptionTable(this)
+            if not data then return end
             if data.currentValue == this.newValue then return end
             data.currentValue = this.newValue
             data.callback(data.currentValue)
@@ -347,6 +350,7 @@ registerForEvent("onInit", function()
     Override("SettingsSelectorControllerInt", "ChangeValue", function (this, forward, wrapped) -- Handle slider int hold a/d
         if nativeSettings.fromMods then
             local data = nativeSettings.getOptionTable(this)
+            if not data then return end
             if forward then
                 this.newValue = this.newValue + data.step
             else
@@ -362,6 +366,7 @@ registerForEvent("onInit", function()
     Observe("SettingsSelectorControllerInt", "AcceptValue", function (this, forward) -- Handle slider a / d int
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
+        if not data then return end
         if forward then
             this.newValue = this.newValue + data.step
         else
@@ -375,6 +380,7 @@ registerForEvent("onInit", function()
         if nativeSettings.fromMods then
             local sliderController = this.sliderWidget:GetControllerByType("inkSliderController")
             local data = nativeSettings.getOptionTable(this)
+            if not data then return end
             if data.currentValue == this.newValue then return end
             data.currentValue = this.newValue
             data.callback(data.currentValue)
@@ -388,6 +394,7 @@ registerForEvent("onInit", function()
     Override("SettingsSelectorControllerFloat", "ChangeValue", function (this, forward, wrapped) -- Handle slider float hold a / d
         if nativeSettings.fromMods then
             local data = nativeSettings.getOptionTable(this)
+            if not data then return end
             if forward then
                 this.newValue = this.newValue + data.step
             else
@@ -403,6 +410,7 @@ registerForEvent("onInit", function()
     Observe("SettingsSelectorControllerFloat", "AcceptValue", function (this, forward) -- Handle slider a / d float
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
+        if not data then return end
         if forward then
             this.newValue = this.newValue + data.step
         else
@@ -415,6 +423,7 @@ registerForEvent("onInit", function()
     Observe("SettingsSelectorControllerListString", "ChangeValue", function (this, forward) -- Handle string list input
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
+        if not data then return end
 
         if forward then
             data.selectedElementIndex = data.selectedElementIndex + 1
@@ -466,6 +475,7 @@ registerForEvent("onInit", function()
     Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
+        if not data then return end
         data.value = NameToString(key)
         data.controller.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(data.value, "None", "None"))
         data.callback(data.value)
@@ -477,7 +487,13 @@ registerForEvent("onInit", function()
             audioEvent.soundName = "ui_menu_onpress"
             Game.GetPlayer():QueueEvent(audioEvent)
 
-            local settingsCategory = (this.data[this.selectorCtrl:GetToggledIndex() + 1].groupPath.value):gsub("/", "")
+            local tabIndex = this.selectorCtrl:GetToggledIndex() + 1
+            for i = 1, nativeSettings.currentPage - 1 do
+                tabIndex = tabIndex + #nativeSettings.tabSizeCache[i]
+            end
+
+            local settingsCategory = (this.data[tabIndex].groupPath.value):gsub("/", "")
+
             for _, o in pairs(nativeSettings.data[settingsCategory].options) do
                 if o.defaultValue ~= nil then
                     nativeSettings.setOption(o, o.defaultValue)
