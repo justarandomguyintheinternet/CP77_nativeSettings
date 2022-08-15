@@ -14,7 +14,7 @@ local nativeSettings = {
     switchPage = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.7,
+    version = 1.8,
     Cron = require("Cron")
 }
 
@@ -131,6 +131,8 @@ registerForEvent("onInit", function()
             local bar = this:GetRootCompoundWidget():GetWidgetByPath(BuildWidgetPath({ "wrapper", "wrapper", "top_header", "wrapper", "center_holder"}))
 
             local maxWidth = 1900
+            local padding = 43.6 -- Roughly the padding (Diff GetDesiredWidth and totalWidth)
+
             nativeSettings.tabSizeCache = {}
             nativeSettings.tabSizeCache[1] = {}
 
@@ -144,7 +146,7 @@ registerForEvent("onInit", function()
 
                 for i = 0, tabs:GetNumChildren() - 1 do -- Cache widths / generate pages
                     local widget = tabs:GetWidget(i)
-                    totalWidth = totalWidth + widget:GetDesiredWidth()
+                    totalWidth = totalWidth + widget:GetDesiredWidth() + padding
                     if totalWidth > maxWidth then
                         totalWidth = 0
                         nativeSettings.tabSizeCache[#nativeSettings.tabSizeCache + 1] = {}
@@ -259,7 +261,7 @@ registerForEvent("onInit", function()
     end)
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
-        if nativeSettings.fromMods then
+        if nativeSettings.fromMods and nativeSettings.tabSizeCache then -- Dont spawn options for the tab size cache phase, to avoid ghost options
                 this:PopulateSettingsData()
                 nativeSettings.saveScrollPos()
 				nativeSettings.callCurrentTabClosedCallback()
