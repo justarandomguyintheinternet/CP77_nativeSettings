@@ -62,6 +62,10 @@ registerForEvent("onInit", function()
         wrapped()
     end)
 
+    Observe("SingleplayerMenuGameController", "OnTooltipContainerSpawned", function (this) -- Add "Mods" menu button for inital main menu load
+        this:ShowActionsList()
+    end)
+
     Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, _, spawnEvent) -- Add "Mods" menu button
         if spawnEvent.value == "OnSwitchToDlc" then
             this:AddMenuItem("Mods", "OnSwitchToSettings")
@@ -140,6 +144,7 @@ registerForEvent("onInit", function()
                 for _, tab in pairs(nativeSettings.data) do
                     table.insert(nativeSettings.tabSizeCache[1], tab.label)
                 end
+                this:PopulateCategories(this.settings:GetMenuIndex()) -- Refresh
             else -- Multiple pages
                 local tabs = bar:GetWidgetByPath(BuildWidgetPath({ "menu_label_holder"}))
                 local totalWidth = 0
@@ -262,51 +267,51 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods and nativeSettings.tabSizeCache then -- Dont spawn options for the tab size cache phase, to avoid ghost options
-                this:PopulateSettingsData()
-                nativeSettings.saveScrollPos()
-				nativeSettings.callCurrentTabClosedCallback()
+            this:PopulateSettingsData()
+            nativeSettings.saveScrollPos()
+            nativeSettings.callCurrentTabClosedCallback()
 
-                this.settingsElements = {}
-                this.settingsOptionsList:RemoveAllChildren()
-                this.descriptionText:SetVisible(false)
+            this.settingsElements = {}
+            this.settingsOptionsList:RemoveAllChildren()
+            this.descriptionText:SetVisible(false)
 
-                if idx < 0 then
-                    idx = this.selectorCtrl:GetToggledIndex()
+            if idx < 0 then
+                idx = this.selectorCtrl:GetToggledIndex()
+            end
+
+            local settingsCategory = this.data[idx + 1]
+            if nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
+                local n = idx
+                for i = 1, nativeSettings.currentPage - 1 do
+                    n = n + #nativeSettings.tabSizeCache[i]
+                end
+                settingsCategory = this.data[n + 1]
+            end
+
+            nativeSettings.currentTabPath = string.sub(NameToString(settingsCategory.groupPath), 2) -- Remove leading slash
+
+            nativeSettings.clearControllers()
+            nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
+                nativeSettings.currentTab = settingsCategory.groupPath.value:gsub("/", "")
+                nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
+                for _, v in pairs(settingsCategory.subcategories) do
+                    local settingsSubCategory = v
+
+                    local _, _, _, widgetName = nativeSettings.pathExists(settingsSubCategory.groupPath.value)
+                    local categoryWidget = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsCategory")
+                    categoryWidget:SetName(StringToName(widgetName))
+                    local categoryController = categoryWidget:GetController()
+
+                    if IsDefined(categoryController) then
+                        categoryController:Setup(settingsSubCategory.label)
+                    end
+                    nativeSettings.populateOptions(this, settingsCategory.groupPath.value, settingsSubCategory.groupPath.value) -- Add custom options to subcategories
                 end
 
-                local settingsCategory = this.data[idx + 1]
-                if nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
-                    local n = idx
-                    for i = 1, nativeSettings.currentPage - 1 do
-                        n = n + #nativeSettings.tabSizeCache[i]
-                    end
-                    settingsCategory = this.data[n + 1]
-                end
+                nativeSettings.restoreScrollPos()
+            end)
 
-				nativeSettings.currentTabPath = string.sub(NameToString(settingsCategory.groupPath), 2) -- Remove leading slash
-
-                nativeSettings.clearControllers()
-                nativeSettings.Cron.NextTick(function() -- "reduce the number of calls to game functions inside that single override" ~ psiberx
-                    nativeSettings.currentTab = settingsCategory.groupPath.value:gsub("/", "")
-                    nativeSettings.populateOptions(this, settingsCategory.groupPath.value) -- Add custom options to tab, no subcategory
-                    for _, v in pairs(settingsCategory.subcategories) do
-                        local settingsSubCategory = v
-
-                        local _, _, _, widgetName = nativeSettings.pathExists(settingsSubCategory.groupPath.value)
-                        local categoryWidget = this:SpawnFromLocal(this.settingsOptionsList.widget, "settingsCategory")
-                        categoryWidget:SetName(StringToName(widgetName))
-                        local categoryController = categoryWidget:GetController()
-
-                        if IsDefined(categoryController) then
-                            categoryController:Setup(settingsSubCategory.label)
-                        end
-                        nativeSettings.populateOptions(this, settingsCategory.groupPath.value, settingsSubCategory.groupPath.value) -- Add custom options to subcategories
-                    end
-
-                    nativeSettings.restoreScrollPos()
-                end)
-
-                this.selectorCtrl:SetSelectedIndex(idx)
+            this.selectorCtrl:SetSelectedIndex(idx)
         else
             wrapped(idx)
         end
