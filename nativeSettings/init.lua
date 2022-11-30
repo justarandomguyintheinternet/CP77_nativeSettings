@@ -14,7 +14,7 @@ local nativeSettings = {
     switchPage = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.8,
+    version = 1.9,
     Cron = require("Cron")
 }
 
@@ -68,16 +68,16 @@ registerForEvent("onInit", function()
 
     Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, _, spawnEvent) -- Add "Mods" menu button
         if spawnEvent.value == "OnSwitchToDlc" then
-            this:AddMenuItem("Mods", "OnSwitchToSettings")
+            this:AddMenuItem("CET Mods", "OnSwitchToSettings")
         end
     end)
 
     Observe("PauseMenuGameController", "OnMenuItemActivated", function (_, _, target) -- Check if activated button is the custom mods button
-        nativeSettings.fromMods = target:GetData().label == "Mods"
+        nativeSettings.fromMods = target:GetData().label == "CET Mods"
     end)
 
     Observe("gameuiMenuItemListGameController", "OnMenuItemActivated", function (_, _, target) -- Check if activated button is the custom mods button
-        nativeSettings.fromMods = target:GetData().label == "Mods"
+        nativeSettings.fromMods = target:GetData().label == "CET Mods"
     end)
 
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
@@ -368,8 +368,8 @@ registerForEvent("onInit", function()
         end
     end)
 
-    Observe("SettingsSelectorControllerInt", "AcceptValue", function (this, forward) -- Handle slider a / d int
-        if not nativeSettings.fromMods then return end
+    Override("SettingsSelectorControllerInt", "AcceptValue", function (this, forward, wrapped) -- Handle slider a / d float
+        if not nativeSettings.fromMods then wrapped(forward) end
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
         if forward then
@@ -412,8 +412,8 @@ registerForEvent("onInit", function()
         end
     end)
 
-    Observe("SettingsSelectorControllerFloat", "AcceptValue", function (this, forward) -- Handle slider a / d float
-        if not nativeSettings.fromMods then return end
+    Override("SettingsSelectorControllerFloat", "AcceptValue", function (this, forward, wrapped) -- Handle slider a / d float
+        if not nativeSettings.fromMods then wrapped(forward) end
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
         if forward then
