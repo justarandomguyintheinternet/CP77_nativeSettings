@@ -73,11 +73,11 @@ registerForEvent("onInit", function()
     end)
 
     Observe("PauseMenuGameController", "OnMenuItemActivated", function (_, _, target) -- Check if activated button is the custom mods button
-        nativeSettings.fromMods = target:GetData().label == "CET Mods"
+        nativeSettings.fromMods = target:GetData().label == "Mods"
     end)
 
     Observe("gameuiMenuItemListGameController", "OnMenuItemActivated", function (_, _, target) -- Check if activated button is the custom mods button
-        nativeSettings.fromMods = target:GetData().label == "CET Mods"
+        nativeSettings.fromMods = target:GetData().label == "Mods"
     end)
 
     Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
