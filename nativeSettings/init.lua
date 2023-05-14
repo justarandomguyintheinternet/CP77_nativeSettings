@@ -20,6 +20,7 @@ local nativeSettings = {
 
 registerForEvent("onInit", function()
     -- General setup things:
+    CName.add("hold_input")
 
     local cetVer = tonumber((GetVersion():gsub("^v(%d+)%.(%d+)%.(%d+)(.*)", function(major, minor, patch, wip) -- <-- This has been made by psiberx, all credits to him
         return ("%d.%02d%02d%d"):format(major, minor, patch, (wip == "" and 0 or 1))
@@ -166,19 +167,7 @@ registerForEvent("onInit", function()
 
                 nextButton:RegisterCallback('OnRelease', function(_, evt) -- Next callback
                     if evt:IsAction('click') then
-                        nativeSettings.currentPage = nativeSettings.currentPage + 1
-                        nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
-                        nativeSettings.switchPage = true
-
-                        if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
-                            nativeSettings.nextButton.root:SetVisible(false)
-                            nativeSettings.previousButton.root:SetVisible(true)
-                        else
-                            nativeSettings.nextButton.root:SetVisible(true)
-                            nativeSettings.previousButton.root:SetVisible(true)
-                        end
-
-                        this:PopulateCategories(this.settings:GetMenuIndex())
+                        nativeSettings.switchToNextPage(this)
                     end
                 end)
                 if nativeSettings.currentPage == #nativeSettings.tabSizeCache then -- For inital load
@@ -192,17 +181,7 @@ registerForEvent("onInit", function()
 
                 previousButton:RegisterCallback('OnRelease', function(_, evt)
                     if evt:IsAction('click') then
-                        nativeSettings.currentPage = nativeSettings.currentPage - 1
-                        nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
-                        nativeSettings.switchPage = true
-                        if nativeSettings.currentPage == 1 then
-                            nativeSettings.previousButton.root:SetVisible(false)
-                            nativeSettings.nextButton.root:SetVisible(true)
-                        else
-                            nativeSettings.nextButton.root:SetVisible(true)
-                            nativeSettings.previousButton.root:SetVisible(true)
-                        end
-                        this:PopulateCategories(this.settings:GetMenuIndex())
+                        nativeSettings.switchToPreviousPage(this)
                     end
                 end)
                 if nativeSettings.currentPage == 1 then
@@ -224,6 +203,16 @@ registerForEvent("onInit", function()
             this.label:SetText(labelString)
         else
             wrapped(label)
+        end
+    end)
+
+    ObserveBefore("SettingsMainGameController", "OnButtonRelease", function (this, event) -- Enable page scrolling via next / previous tab buttons
+        local currentToggledIndex = this.selectorCtrl:GetToggledIndex()
+        if event:IsAction("prior_menu") and currentToggledIndex < 1 then
+            nativeSettings.switchToPreviousPage(this)
+        elseif event:IsAction("next_menu") and currentToggledIndex >= this.selectorCtrl:Size() - 1 then
+            nativeSettings.switchToNextPage(this)
+            this.selectorCtrl:SetToggledIndex(-1) -- Avoid skipping the first tab
         end
     end)
 
@@ -482,8 +471,32 @@ registerForEvent("onInit", function()
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
         data.value = NameToString(key)
-        data.controller.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(data.value, "None", "None"))
+        data.controller.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(data.value, "None", data.isHold and "hold_input" or "None"))
         data.callback(data.value)
+    end)
+
+    Override("SettingsSelectorControllerKeyBinding", "PrepareInputTag", function(key, group, action, wrapped) -- Change device type for gamepad keys
+        local data = wrapped(key, group, action)
+        if key.value:find("IK_Pad") then
+            data = string.gsub(data, "keyboard", "durango")
+        end
+        if action.value == "hold_input" then
+            data = string.gsub(data, "Hide", "Show")
+        end
+        print(data)
+        return data
+    end)
+
+    Override("SettingsSelectorControllerKeyBinding", "Refresh", function (this, wrapped) -- Handle keybinding being canceled
+        if nativeSettings.fromMods then
+            local data = nativeSettings.getOptionTable(this)
+            if not data then return end
+
+            this.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(data.value, "None", data.isHold and "hold_input" or "None"))
+            this:TriggerActionFeedback()
+        else
+            wrapped()
+        end
     end)
 
     Override("SettingsMainGameController", "RequestRestoreDefaults", function (this, wrapped) -- Handle reset settings
@@ -810,7 +823,13 @@ function nativeSettings.addButton(path, label, desc, buttonText, textSize, callb
     return button
 end
 
-function nativeSettings.addKeyBinding(path, label, desc, value, defaultValue, callback, optionalIndex) -- Call this to add a key binding widget
+function nativeSettings.addKeyBinding(path, label, desc, value, defaultValue, isHold, callback, optionalIndex) -- Call this to add a key binding widget
+    if type(callback) ~= "function" then -- Backwards compatibility
+        optionalIndex = callback
+        callback = isHold
+        isHold = false
+    end
+
     local validPath, state, tabPath, subPath = nativeSettings.pathExists(path)
     local placementIndex = nativeSettings.getOptionIndexOffset(tabPath, subPath, optionalIndex)
 
@@ -819,7 +838,7 @@ function nativeSettings.addKeyBinding(path, label, desc, value, defaultValue, ca
         return
     end
 
-    local keyBinding = {type = "keyBinding", path = path, label = label, desc = desc, value = value, defaultValue = defaultValue, callback = callback, controller = nil, fullPath = path}
+    local keyBinding = {type = "keyBinding", path = path, label = label, desc = desc, value = value, defaultValue = defaultValue, isHold = isHold, callback = callback, controller = nil, fullPath = path}
 
     if state == 0 then -- Add to subcategory
         keyBinding.path = subPath
@@ -944,11 +963,10 @@ function nativeSettings.setOption(tab, value) -- Use this to set an options valu
                 end
             elseif o.type == "keyBinding"then
                 if type(value) == "string" then
-                    if o.value == value then return end
                     o.value = value
                     o.callback(o.value)
                     if o.controller then
-                        o.controller.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(value, "None", "None"))
+                        o.controller.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(value, "None", tab.isHold and "hold_input" or "None"))
                     end
                 else
                     print(string.format("[NativeSettings] Invalid data type passed for setOption \"%s\" : %s, expected: string", tab.label, type(value)))
@@ -1155,7 +1173,7 @@ function nativeSettings.spawnKeyBinding(this, option, idx)
     currentItem.LabelText:SetText(option.label)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
-    currentItem.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(option.value, "None", "None"))
+    currentItem.text:SetText(SettingsSelectorControllerKeyBinding.PrepareInputTag(option.value, "None", option.isHold and "hold_input" or "None"))
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -1293,6 +1311,36 @@ function nativeSettings.callCurrentTabClosedCallback()
             tab.closedCallback()
         end
     end
+end
+
+function nativeSettings.switchToNextPage(settingsController)
+    nativeSettings.currentPage = nativeSettings.currentPage + 1
+    nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
+    nativeSettings.switchPage = true
+
+    if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
+        nativeSettings.nextButton.root:SetVisible(false)
+        nativeSettings.previousButton.root:SetVisible(true)
+    else
+        nativeSettings.nextButton.root:SetVisible(true)
+        nativeSettings.previousButton.root:SetVisible(true)
+    end
+
+    settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
+end
+
+function nativeSettings.switchToPreviousPage(settingsController)
+    nativeSettings.currentPage = nativeSettings.currentPage - 1
+    nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
+    nativeSettings.switchPage = true
+    if nativeSettings.currentPage == 1 then
+        nativeSettings.previousButton.root:SetVisible(false)
+        nativeSettings.nextButton.root:SetVisible(true)
+    else
+        nativeSettings.nextButton.root:SetVisible(true)
+        nativeSettings.previousButton.root:SetVisible(true)
+    end
+    settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
 end
 
 return nativeSettings

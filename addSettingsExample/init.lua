@@ -31,7 +31,7 @@ registerForEvent("onInit", function()
         -- Add in any logic you need in here, such as saving the changed to file / database
     end)
 
-    nativeSettings.addKeyBinding("/myMod/sub", "Keybind", "Description", "IK_1", "IK_5", function(key) -- path, label, desc, currentKey, defaultKey, callback, optionalIndex
+    nativeSettings.addKeyBinding("/myMod/sub", "Keybind", "Description", "IK_1", "IK_5", false, function(key) -- path, label, desc, currentKey, defaultKey, isHold, callback, optionalIndex
         print("Changed KEYBIND to", key)
         -- Add any logic you need in here, such as saving the changed to file / database
     end)

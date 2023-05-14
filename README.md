@@ -107,12 +107,14 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - This adds a keybind widget, that can be clicked on to store any pressed key
 - Datatype is `string`
 - When pressed, it will return the keycode e.g `IK_X` of the pressed key
-- `currentKey` and `defaultKey` needs to be a valid keycode
-- It is currently not possible to set a CET hotkey from within a mod, thus making this widget mainly useful for getting a keycode to be used with e.g. an input hint
+- `currentKey` and `defaultKey` needs to be a [valid keycode](https://nativedb.red4ext.com/EInputKey)
+- `isHold` determines whether or not the key icon has a "Hold" outline
+- The actual reading of raw inputs has to be done via [Codeware](https://github.com/psiberx/cp2077-codeware/wiki#game-events), for examples on how to implement this using CET, including a simple module for setting up multikey bindings, check the provided example in this repo
+- Controller bindings are supported too, but require [Codeware](https://github.com/psiberx/cp2077-codeware) to work (Required for actually reading inputs anyways), for an example on how to forward the input events from Codeware to Native Settings check the provided examples
 	```lua
-	-- Parameters: path, label, desc, currentKey, defaultKey, callback, optionalIndex
+	-- Parameters: path, label, desc, currentKey, defaultKey, isHold, callback, optionalIndex
 
-	nativeSettings.addKeyBinding("/myMod/sub", "Keybind", "Description", "IK_1", "IK_5", function(key)
+	nativeSettings.addKeyBinding("/myMod/sub", "Keybind", "Description", "IK_1", "IK_5", false, function(key)
 		print("Changed KEYBIND to", key)
 		-- Add any logic you need in here, such as saving the changes to file / database
 	end)
