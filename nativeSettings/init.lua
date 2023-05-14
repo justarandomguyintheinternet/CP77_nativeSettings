@@ -483,7 +483,6 @@ registerForEvent("onInit", function()
         if action.value == "hold_input" then
             data = string.gsub(data, "Hide", "Show")
         end
-        print(data)
         return data
     end)
 
