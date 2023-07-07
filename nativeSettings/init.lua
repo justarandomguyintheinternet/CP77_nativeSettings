@@ -14,7 +14,7 @@ local nativeSettings = {
     switchPage = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.9,
+    version = 1.94,
     Cron = require("Cron")
 }
 
@@ -437,10 +437,12 @@ registerForEvent("onInit", function()
         data.callback(data.selectedElementIndex)
     end)
 
-    Observe("SettingsSelectorControllerBool", "OnShortcutPress", function(this) -- Handle button widget press
+    Observe("SettingsSelectorControllerBool", "OnShortcutPress", function(this, event) -- Handle button widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
+
+        if not event:IsAction("click") then return end
 
         if data.type ~= "button" then return end
         if nativeSettings.pressedButtons[tostring(data)] then return end
