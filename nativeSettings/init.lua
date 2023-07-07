@@ -457,8 +457,7 @@ registerForEvent("onInit", function()
         fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0.3809, Blue = 0.3476, Alpha = 1.0 })) -- Button click visual feedback
         nativeSettings.Cron.After(0.08, function ()
             if not nativeSettings.fromMods then return end
-
-            fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0, Blue = 0, Alpha = 1.0 }))
+            fill:SetTintColor(HDRColor.new({ Red = 0.070588238537312, Green = 0.070588238537312, Blue = 0.1294117718935, Alpha = 1.0 }))
         end)
 
         local audioEvent = SoundPlayEvent.new() -- Play click sound
