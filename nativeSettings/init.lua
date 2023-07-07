@@ -468,6 +468,18 @@ registerForEvent("onInit", function()
         data.callback()
     end)
 
+    Override("SettingsSelectorController", "OnShortcutPress", function (this, event, wrapped) -- Override to avoid the button widget's underlying switch widget from showing
+        if nativeSettings.fromMods then
+            local data = nativeSettings.getOptionTable(this)
+            if not data or data.type ~= "button" then
+                return wrapped(event)
+            end
+
+            if data.type == "button" then return end
+        end
+        return wrapped(event)
+    end)
+
     Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
@@ -1156,6 +1168,9 @@ function nativeSettings.spawnButton(this, option, idx)
     text:SetVerticalAlignment(textVerticalAlignment.Center)
     text:SetText(option.buttonText)
     text:Reparent(anchor, -1)
+
+    -- this.onState:SetEnabled(false)
+    -- this.offState:SetEnabled(false)
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
