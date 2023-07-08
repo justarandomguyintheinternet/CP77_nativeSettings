@@ -14,7 +14,7 @@ local nativeSettings = {
     switchPage = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.9,
+    version = 1.94,
     Cron = require("Cron")
 }
 
@@ -437,10 +437,12 @@ registerForEvent("onInit", function()
         data.callback(data.selectedElementIndex)
     end)
 
-    Observe("SettingsSelectorControllerBool", "OnShortcutPress", function(this) -- Handle button widget press
+    Observe("SettingsSelectorControllerBool", "OnShortcutPress", function(this, event) -- Handle button widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
         if not data then return end
+
+        if not event:IsAction("click") then return end
 
         if data.type ~= "button" then return end
         if nativeSettings.pressedButtons[tostring(data)] then return end
@@ -455,8 +457,7 @@ registerForEvent("onInit", function()
         fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0.3809, Blue = 0.3476, Alpha = 1.0 })) -- Button click visual feedback
         nativeSettings.Cron.After(0.08, function ()
             if not nativeSettings.fromMods then return end
-
-            fill:SetTintColor(HDRColor.new({ Red = 0, Green = 0, Blue = 0, Alpha = 1.0 }))
+            fill:SetTintColor(HDRColor.new({ Red = 0.070588238537312, Green = 0.070588238537312, Blue = 0.1294117718935, Alpha = 1.0 }))
         end)
 
         local audioEvent = SoundPlayEvent.new() -- Play click sound
@@ -464,6 +465,18 @@ registerForEvent("onInit", function()
         Game.GetPlayer():QueueEvent(audioEvent)
 
         data.callback()
+    end)
+
+    Override("SettingsSelectorController", "OnShortcutPress", function (this, event, wrapped) -- Override to avoid the button widget's underlying switch widget from showing
+        if nativeSettings.fromMods then
+            local data = nativeSettings.getOptionTable(this)
+            if not data or data.type ~= "button" then
+                return wrapped(event)
+            end
+
+            if data.type == "button" then return end
+        end
+        return wrapped(event)
     end)
 
     Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
@@ -1154,6 +1167,9 @@ function nativeSettings.spawnButton(this, option, idx)
     text:SetVerticalAlignment(textVerticalAlignment.Center)
     text:SetText(option.buttonText)
     text:Reparent(anchor, -1)
+
+    -- this.onState:SetEnabled(false)
+    -- this.offState:SetEnabled(false)
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
