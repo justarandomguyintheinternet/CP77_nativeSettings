@@ -2,7 +2,7 @@ local nativeSettings = {
     data = {},
 	currentTabPath = nil,
     fromMods = false,
-    minCETVersion = 1.180000,
+    minCETVersion = 1.25,
     settingsMainController = nil,
     settingsOptionsList = nil,
     currentTab = "",
@@ -14,7 +14,7 @@ local nativeSettings = {
     switchPage = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.94,
+    version = 1.95,
     Cron = require("Cron")
 }
 
@@ -37,8 +37,6 @@ registerForEvent("onInit", function()
         nativeSettings.settingsMainController = this
 
         local rootWidget = this:GetRootCompoundWidget()
-        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "controller_btn"}))
-        button:SetVisible(false)
 
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "brightness_btn"}))
         button:SetMargin(5000, 5000, 5000, 5000)
@@ -68,8 +66,12 @@ registerForEvent("onInit", function()
     end)
 
     Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, _, spawnEvent) -- Add "Mods" menu button
-        if spawnEvent.value == "OnSwitchToDlc" then
-            this:AddMenuItem("Mods", "OnSwitchToSettings")
+        if spawnEvent.value == "OnSwitchToSettings" then
+            local data = PauseMenuListItemData.new()
+            data.label = "Mods"
+            data.eventName = "OnSwitchToSettings"
+            data.action = PauseMenuAction.OpenSubMenu
+            this.menuListController:PushData(data)
         end
     end)
 
