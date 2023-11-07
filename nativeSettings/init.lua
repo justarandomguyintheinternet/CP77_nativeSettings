@@ -524,6 +524,14 @@ registerForEvent("onInit", function()
                 tabIndex = tabIndex + #nativeSettings.tabSizeCache[i]
             end
 
+            if nativeSettings.data[nativeSettings.currentTabPath].restoreDefaultsCallback ~= nil then
+                nativeSettings.data[nativeSettings.currentTabPath].restoreDefaultsCallback()
+            end
+
+            if nativeSettings.data[nativeSettings.currentTabPath].overrideNativeRestoreDefaults then
+                return
+            end
+
             local settingsCategory = (this.data[tabIndex].groupPath.value):gsub("/", "")
 
             for _, o in pairs(nativeSettings.data[settingsCategory].options) do
@@ -990,6 +998,13 @@ function nativeSettings.setOption(tab, value) -- Use this to set an options valu
     end
 
     if not success then print(string.format("[NativeSettings] Could not set the option for \"%s\" correctly, the provided options table could not be found!", tab.label)) end
+end
+
+function nativeSettings.registerRestoreDefaultsCallback(path, overrideNativeRestoreDefaults, callback) -- Use this to have your function called when the user restores defaults. If overrideNativeRestoreDefaults is false then Native Settings will restore defaults as normal after the callback is called.
+    path = path:gsub("/", "")
+
+    nativeSettings.data[path].overrideNativeRestoreDefaults = overrideNativeRestoreDefaults
+    nativeSettings.data[path].restoreDefaultsCallback = callback
 end
 
 function nativeSettings.refresh() -- Refreshes the UI, e.g. after adding / removing widgets. Not needed anymore as of version 1.4

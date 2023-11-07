@@ -160,6 +160,16 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 	-- Parameters: path
 	nativeSettings.removeSubcategory("/myMod/sub")
 	```
+
+## Custom Restore Defaults:
+- A custom callback function can be registered for a tab, and optionally the normal restore default actions can be overridden
+	```lua
+	-- Parameters: path, overrideNativeRestoreDefaults, callback
+
+	nativeSettings.registerRestoreDefaultsCallback("/myMod", true, function()
+		-- Handle restoring defaults with your own logic
+	end)
+	```
 	
 ## The `refresh` function:
 - Calling this function is not necessary anymore, as of version 1.4
