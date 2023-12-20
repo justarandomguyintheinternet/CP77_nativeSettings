@@ -39,10 +39,14 @@ registerForEvent("onInit", function()
         local rootWidget = this:GetRootCompoundWidget()
 
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "brightness_btn"}))
-        button:SetMargin(5000, 5000, 5000, 5000)
-
+        if button then
+            button:SetMargin(5000, 5000, 5000, 5000)
+        end
+        
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "hdr_btn"}))
-        button:SetMargin(5000, 5000, 5000, 5000)
+        if button then
+            button:SetMargin(5000, 5000, 5000, 5000)
+        end
     end)
 
     ObserveAfter("SettingsMainGameController", "OnInitialize", function (this) -- Get a ref to the settingsOptionsList
@@ -1346,6 +1350,7 @@ function nativeSettings.callCurrentTabClosedCallback()
 end
 
 function nativeSettings.switchToNextPage(settingsController)
+    if not nativeSettings.tabSizeCache or not nativeSettings.nextButton then return end
     nativeSettings.currentPage = nativeSettings.currentPage + 1
     nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
     nativeSettings.switchPage = true
@@ -1362,6 +1367,7 @@ function nativeSettings.switchToNextPage(settingsController)
 end
 
 function nativeSettings.switchToPreviousPage(settingsController)
+    if not nativeSettings.previousButton then return end
     nativeSettings.currentPage = nativeSettings.currentPage - 1
     nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
     nativeSettings.switchPage = true
