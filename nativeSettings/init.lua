@@ -12,6 +12,7 @@ local nativeSettings = {
     tabSizeCache = nil,
     currentPage = 1,
     switchPage = false,
+    nextPageFirstTabLoad = false,
     previousButton = nil,
     nextButton = nil,
     version = 1.95,
@@ -262,6 +263,11 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods and nativeSettings.tabSizeCache then -- Dont spawn options for the tab size cache phase, to avoid ghost options
+            if nativeSettings.nextPageFirstTabLoad then
+                nativeSettings.nextPageFirstTabLoad = false
+                return
+            end
+            
             this:PopulateSettingsData()
             nativeSettings.saveScrollPos()
             nativeSettings.callCurrentTabClosedCallback()
@@ -1363,6 +1369,7 @@ function nativeSettings.switchToNextPage(settingsController)
         nativeSettings.previousButton.root:SetVisible(true)
     end
 
+    nativeSettings.nextPageFirstTabLoad = true
     settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
 end
 
