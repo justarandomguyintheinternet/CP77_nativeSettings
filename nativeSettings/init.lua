@@ -133,7 +133,7 @@ registerForEvent("onInit", function()
             end
             this.selectorCtrl:Refresh()
 
-            if nativeSettings.switchPage then -- Reset to first tab on page switch
+            if nativeSettings.switchPage then
                 nativeSettings.switchPage = false
                 if idx >= 0 and idx < #this.data and nativeSettings.switchPreviousPage then
                     this.selectorCtrl:SetToggledIndex(idx)
@@ -198,7 +198,7 @@ registerForEvent("onInit", function()
 
                 nextButton:RegisterCallback('OnRelease', function(_, evt) -- Next callback
                     if evt:IsAction('click') then
-                        nativeSettings.switchToNextPage(this)
+                        nativeSettings.switchToNextPage(this, false)
                     end
                 end)
                 if nativeSettings.currentPage == #nativeSettings.tabSizeCache then -- For inital load
@@ -212,7 +212,7 @@ registerForEvent("onInit", function()
 
                 previousButton:RegisterCallback('OnRelease', function(_, evt)
                     if evt:IsAction('click') then
-                        nativeSettings.switchToPreviousPage(this)
+                        nativeSettings.switchToPreviousPage(this, false)
                     end
                 end)
                 if nativeSettings.currentPage == 1 then
@@ -240,9 +240,9 @@ registerForEvent("onInit", function()
     ObserveBefore("SettingsMainGameController", "OnButtonRelease", function (this, event) -- Enable page scrolling via next / previous tab buttons
         local currentToggledIndex = this.selectorCtrl:GetToggledIndex()
         if event:IsAction("prior_menu") and currentToggledIndex < 1 then
-            nativeSettings.switchToPreviousPage(this)
+            nativeSettings.switchToPreviousPage(this, true)
         elseif event:IsAction("next_menu") and currentToggledIndex >= this.selectorCtrl:Size() - 1 then
-            nativeSettings.switchToNextPage(this)
+            nativeSettings.switchToNextPage(this, true)
             this.selectorCtrl:SetToggledIndex(-1) -- Avoid skipping the first tab
         end
     end)
@@ -1379,7 +1379,7 @@ function nativeSettings.callCurrentTabClosedCallback()
     end
 end
 
-function nativeSettings.switchToNextPage(settingsController)
+function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
     if not nativeSettings.tabSizeCache or not nativeSettings.nextButton then return end
     nativeSettings.currentPage = nativeSettings.currentPage + 1
     nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
@@ -1397,11 +1397,13 @@ function nativeSettings.switchToNextPage(settingsController)
         end
     end
 
-    nativeSettings.nextPageFirstTabLoad = true
+    if fromNextMenu then
+        nativeSettings.nextPageFirstTabLoad = true
+    end
     settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
 end
 
-function nativeSettings.switchToPreviousPage(settingsController)
+function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
     if not nativeSettings.previousButton then return end
     local startingPage = nativeSettings.currentPage
     nativeSettings.currentPage = nativeSettings.currentPage - 1
@@ -1427,7 +1429,13 @@ function nativeSettings.switchToPreviousPage(settingsController)
     end
     
     if nativeSettings.tabSizeCache then
-        settingsController:PopulateCategories(#nativeSettings.tabSizeCache[nativeSettings.currentPage])
+        local idx
+        if fromPriorMenu then
+            idx = #nativeSettings.tabSizeCache[nativeSettings.currentPage]
+        else
+            idx = #nativeSettings.tabSizeCache[nativeSettings.currentPage] - 1
+        end
+        settingsController:PopulateCategories(idx)
     else
         settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
     end
