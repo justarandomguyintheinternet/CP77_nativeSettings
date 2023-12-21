@@ -237,14 +237,21 @@ registerForEvent("onInit", function()
         end
     end)
 
-    ObserveBefore("SettingsMainGameController", "OnButtonRelease", function (this, event) -- Enable page scrolling via next / previous tab buttons
+    Override("SettingsMainGameController", "OnButtonRelease", function (this, event, wrapped) -- Enable page scrolling via next / previous tab buttons
         local currentToggledIndex = this.selectorCtrl:GetToggledIndex()
         if event:IsAction("prior_menu") and currentToggledIndex < 1 then
+            if nativeSettings.currentPage == 1 then
+                return
+            end
             nativeSettings.switchToPreviousPage(this, true)
         elseif event:IsAction("next_menu") and currentToggledIndex >= this.selectorCtrl:Size() - 1 then
+            if nativeSettings.tabSizeCache and nativeSettings.currentPage == #nativeSettings.tabSizeCache then
+                return
+            end
             nativeSettings.switchToNextPage(this, true)
             this.selectorCtrl:SetToggledIndex(-1) -- Avoid skipping the first tab
         end
+        wrapped(event)
     end)
 
     -- Adding UI things:
