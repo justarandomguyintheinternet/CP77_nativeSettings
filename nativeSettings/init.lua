@@ -12,9 +12,13 @@ local nativeSettings = {
     tabSizeCache = nil,
     currentPage = 1,
     switchPage = false,
+    switchPreviousPage = false,
     nextPageFirstTabLoad = false,
     previousButton = nil,
     nextButton = nil,
+    lastNativeSettingsCategoryIndex = 0,
+    lastSettingsCategoryIndex = 0,
+    fromInit = false,
     version = 1.95,
     Cron = require("Cron")
 }
@@ -33,6 +37,7 @@ registerForEvent("onInit", function()
     end
 
     Observe("SettingsMainGameController", "OnInitialize", function (this) -- Hide buttons
+        nativeSettings.fromInit = true
         if not nativeSettings.fromMods then return end
 
         nativeSettings.settingsMainController = this
@@ -88,8 +93,12 @@ registerForEvent("onInit", function()
         nativeSettings.fromMods = target:GetData().label == "Mods"
     end)
 
-    Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
-        if not nativeSettings.fromMods then return end
+    Observe("SettingsMainGameController", "RequestClose", function (this) -- Handle mod settings close
+        if not nativeSettings.fromMods then
+            nativeSettings.lastSettingsCategoryIndex = this.selectorCtrl:GetToggledIndex()
+            return
+        end
+        nativeSettings.lastNativeSettingsCategoryIndex = this.selectorCtrl:GetToggledIndex()
 		nativeSettings.callCurrentTabClosedCallback()
 		nativeSettings.currentTabPath = nil
         nativeSettings.fromMods = false
@@ -102,6 +111,10 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategories", function (this, idx, wrapped) -- Override to remove "Not Localized" on tabs
         if nativeSettings.fromMods then
+            if nativeSettings.fromInit then
+                idx = nativeSettings.lastNativeSettingsCategoryIndex
+                nativeSettings.fromInit = false
+            end
             this.selectorCtrl:Clear()
             for _, curCategoty in pairs(this.data) do
                 if not curCategoty.isEmpty then
@@ -122,7 +135,14 @@ registerForEvent("onInit", function()
 
             if nativeSettings.switchPage then -- Reset to first tab on page switch
                 nativeSettings.switchPage = false
-                this.selectorCtrl:SetToggledIndex(0)
+                if idx >= 0 and idx < #this.data and nativeSettings.switchPreviousPage then
+                    this.selectorCtrl:SetToggledIndex(idx)
+                else
+                    this.selectorCtrl:SetToggledIndex(0)
+                end
+                if nativeSettings.switchPreviousPage then
+                    nativeSettings.switchPreviousPage = false
+                end
             else
                 if idx >= 0 and idx < #this.data then
                     this.selectorCtrl:SetToggledIndex(idx)
@@ -131,6 +151,10 @@ registerForEvent("onInit", function()
                 end
             end
         else
+            if nativeSettings.fromInit then
+                idx = nativeSettings.lastSettingsCategoryIndex
+                nativeSettings.fromInit = false
+            end
             wrapped(idx)
         end
     end)
@@ -1363,10 +1387,14 @@ function nativeSettings.switchToNextPage(settingsController)
 
     if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
         nativeSettings.nextButton.root:SetVisible(false)
-        nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.previousButton then
+            nativeSettings.previousButton.root:SetVisible(true)    
+        end
     else
         nativeSettings.nextButton.root:SetVisible(true)
-        nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.previousButton then
+            nativeSettings.previousButton.root:SetVisible(true)    
+        end
     end
 
     nativeSettings.nextPageFirstTabLoad = true
@@ -1375,17 +1403,34 @@ end
 
 function nativeSettings.switchToPreviousPage(settingsController)
     if not nativeSettings.previousButton then return end
+    local startingPage = nativeSettings.currentPage
     nativeSettings.currentPage = nativeSettings.currentPage - 1
     nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
+    
+    if startingPage == nativeSettings.currentPage then
+        return
+    end
+
     nativeSettings.switchPage = true
+    nativeSettings.switchPreviousPage = true
+
     if nativeSettings.currentPage == 1 then
         nativeSettings.previousButton.root:SetVisible(false)
-        nativeSettings.nextButton.root:SetVisible(true)
+        if nativeSettings.nextButton then
+            nativeSettings.nextButton.root:SetVisible(true)
+        end
     else
-        nativeSettings.nextButton.root:SetVisible(true)
         nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.nextButton then
+            nativeSettings.nextButton.root:SetVisible(true)
+        end
     end
-    settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
+    
+    if nativeSettings.tabSizeCache then
+        settingsController:PopulateCategories(#nativeSettings.tabSizeCache[nativeSettings.currentPage])
+    else
+        settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
+    end
 end
 
 return nativeSettings
