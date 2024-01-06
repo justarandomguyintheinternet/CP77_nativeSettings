@@ -240,14 +240,8 @@ registerForEvent("onInit", function()
     Override("SettingsMainGameController", "OnButtonRelease", function (this, event, wrapped) -- Enable page scrolling via next / previous tab buttons
         local currentToggledIndex = this.selectorCtrl:GetToggledIndex()
         if event:IsAction("prior_menu") and currentToggledIndex < 1 then
-            if nativeSettings.currentPage == 1 and nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
-                return
-            end
             nativeSettings.switchToPreviousPage(this, true)
         elseif event:IsAction("next_menu") and currentToggledIndex >= this.selectorCtrl:Size() - 1 then
-            if nativeSettings.tabSizeCache and nativeSettings.currentPage == #nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
-                return
-            end
             nativeSettings.switchToNextPage(this, true)
             this.selectorCtrl:SetToggledIndex(-1) -- Avoid skipping the first tab
         end
@@ -1386,7 +1380,13 @@ function nativeSettings.callCurrentTabClosedCallback()
 end
 
 function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
-    if not nativeSettings.tabSizeCache or not nativeSettings.nextButton then return end
+    if not nativeSettings.tabSizeCache then return end
+    if nativeSettings.currentPage == #nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
+        -- Wrap around to first page
+        nativeSettings.currentPage = 0
+        nativeSettings.previousButton.root:SetVisible(false)
+    end
+
     nativeSettings.currentPage = nativeSettings.currentPage + 1
     nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
     nativeSettings.switchPage = true
@@ -1398,7 +1398,7 @@ function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
         end
     else
         nativeSettings.nextButton.root:SetVisible(true)
-        if nativeSettings.previousButton then
+        if nativeSettings.previousButton and not (nativeSettings.currentPage == 1) then
             nativeSettings.previousButton.root:SetVisible(true)
         end
     end
@@ -1410,7 +1410,13 @@ function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
 end
 
 function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
-    if not nativeSettings.previousButton then return end
+    if not nativeSettings.tabSizeCache then return end
+    if nativeSettings.currentPage == 1 and #nativeSettings.tabSizeCache > 1 then
+        -- Wrap around to last page
+        nativeSettings.currentPage = #nativeSettings.tabSizeCache + 1
+        nativeSettings.nextButton.root:SetVisible(false)
+    end
+
     local startingPage = nativeSettings.currentPage
     nativeSettings.currentPage = nativeSettings.currentPage - 1
     nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
@@ -1429,7 +1435,7 @@ function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
         end
     else
         nativeSettings.previousButton.root:SetVisible(true)
-        if nativeSettings.nextButton then
+        if nativeSettings.nextButton and not (nativeSettings.currentPage == #nativeSettings.tabSizeCache) then
             nativeSettings.nextButton.root:SetVisible(true)
         end
     end
