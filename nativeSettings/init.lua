@@ -2,7 +2,7 @@ local nativeSettings = {
     data = {},
 	currentTabPath = nil,
     fromMods = false,
-    minCETVersion = 1.180000,
+    minCETVersion = 1.25,
     settingsMainController = nil,
     settingsOptionsList = nil,
     currentTab = "",
@@ -12,9 +12,14 @@ local nativeSettings = {
     tabSizeCache = nil,
     currentPage = 1,
     switchPage = false,
+    switchPreviousPage = false,
+    nextPageFirstTabLoad = false,
     previousButton = nil,
     nextButton = nil,
-    version = 1.94,
+    lastNativeSettingsCategoryIndex = 0,
+    lastSettingsCategoryIndex = 0,
+    fromInit = false,
+    version = 1.96,
     Cron = require("Cron")
 }
 
@@ -32,19 +37,22 @@ registerForEvent("onInit", function()
     end
 
     Observe("SettingsMainGameController", "OnInitialize", function (this) -- Hide buttons
+        nativeSettings.fromInit = true
         if not nativeSettings.fromMods then return end
 
         nativeSettings.settingsMainController = this
 
         local rootWidget = this:GetRootCompoundWidget()
-        local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "controller_btn"}))
-        button:SetVisible(false)
 
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "brightness_btn"}))
-        button:SetMargin(5000, 5000, 5000, 5000)
+        if button then
+            button:SetMargin(5000, 5000, 5000, 5000)
+        end
 
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "hdr_btn"}))
-        button:SetMargin(5000, 5000, 5000, 5000)
+        if button then
+            button:SetMargin(5000, 5000, 5000, 5000)
+        end
     end)
 
     ObserveAfter("SettingsMainGameController", "OnInitialize", function (this) -- Get a ref to the settingsOptionsList
@@ -68,8 +76,12 @@ registerForEvent("onInit", function()
     end)
 
     Observe("gameuiMenuItemListGameController", "AddMenuItem", function (this, _, spawnEvent) -- Add "Mods" menu button
-        if spawnEvent.value == "OnSwitchToDlc" then
-            this:AddMenuItem("Mods", "OnSwitchToSettings")
+        if spawnEvent.value == "OnSwitchToSettings" then
+            local data = PauseMenuListItemData.new()
+            data.label = "Mods"
+            data.eventName = "OnSwitchToSettings"
+            data.action = PauseMenuAction.OpenSubMenu
+            this.menuListController:PushData(data)
         end
     end)
 
@@ -81,8 +93,12 @@ registerForEvent("onInit", function()
         nativeSettings.fromMods = target:GetData().label == "Mods"
     end)
 
-    Observe("SettingsMainGameController", "RequestClose", function () -- Handle mod settings close
-        if not nativeSettings.fromMods then return end
+    Observe("SettingsMainGameController", "RequestClose", function (this) -- Handle mod settings close
+        if not nativeSettings.fromMods then
+            nativeSettings.lastSettingsCategoryIndex = this.selectorCtrl:GetToggledIndex()
+            return
+        end
+        nativeSettings.lastNativeSettingsCategoryIndex = this.selectorCtrl:GetToggledIndex()
 		nativeSettings.callCurrentTabClosedCallback()
 		nativeSettings.currentTabPath = nil
         nativeSettings.fromMods = false
@@ -95,6 +111,10 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategories", function (this, idx, wrapped) -- Override to remove "Not Localized" on tabs
         if nativeSettings.fromMods then
+            if nativeSettings.fromInit then
+                idx = nativeSettings.lastNativeSettingsCategoryIndex
+                nativeSettings.fromInit = false
+            end
             this.selectorCtrl:Clear()
             for _, curCategoty in pairs(this.data) do
                 if not curCategoty.isEmpty then
@@ -113,9 +133,16 @@ registerForEvent("onInit", function()
             end
             this.selectorCtrl:Refresh()
 
-            if nativeSettings.switchPage then -- Reset to first tab on page switch
+            if nativeSettings.switchPage then
                 nativeSettings.switchPage = false
-                this.selectorCtrl:SetToggledIndex(0)
+                if idx >= 0 and idx < #this.data and nativeSettings.switchPreviousPage then
+                    this.selectorCtrl:SetToggledIndex(idx)
+                else
+                    this.selectorCtrl:SetToggledIndex(0)
+                end
+                if nativeSettings.switchPreviousPage then
+                    nativeSettings.switchPreviousPage = false
+                end
             else
                 if idx >= 0 and idx < #this.data then
                     this.selectorCtrl:SetToggledIndex(idx)
@@ -124,6 +151,10 @@ registerForEvent("onInit", function()
                 end
             end
         else
+            if nativeSettings.fromInit then
+                idx = nativeSettings.lastSettingsCategoryIndex
+                nativeSettings.fromInit = false
+            end
             wrapped(idx)
         end
     end)
@@ -167,7 +198,7 @@ registerForEvent("onInit", function()
 
                 nextButton:RegisterCallback('OnRelease', function(_, evt) -- Next callback
                     if evt:IsAction('click') then
-                        nativeSettings.switchToNextPage(this)
+                        nativeSettings.switchToNextPage(this, false)
                     end
                 end)
                 if nativeSettings.currentPage == #nativeSettings.tabSizeCache then -- For inital load
@@ -181,7 +212,7 @@ registerForEvent("onInit", function()
 
                 previousButton:RegisterCallback('OnRelease', function(_, evt)
                     if evt:IsAction('click') then
-                        nativeSettings.switchToPreviousPage(this)
+                        nativeSettings.switchToPreviousPage(this, false)
                     end
                 end)
                 if nativeSettings.currentPage == 1 then
@@ -206,14 +237,15 @@ registerForEvent("onInit", function()
         end
     end)
 
-    ObserveBefore("SettingsMainGameController", "OnButtonRelease", function (this, event) -- Enable page scrolling via next / previous tab buttons
+    Override("SettingsMainGameController", "OnButtonRelease", function (this, event, wrapped) -- Enable page scrolling via next / previous tab buttons
         local currentToggledIndex = this.selectorCtrl:GetToggledIndex()
         if event:IsAction("prior_menu") and currentToggledIndex < 1 then
-            nativeSettings.switchToPreviousPage(this)
+            nativeSettings.switchToPreviousPage(this, true)
         elseif event:IsAction("next_menu") and currentToggledIndex >= this.selectorCtrl:Size() - 1 then
-            nativeSettings.switchToNextPage(this)
+            nativeSettings.switchToNextPage(this, true)
             this.selectorCtrl:SetToggledIndex(-1) -- Avoid skipping the first tab
         end
+        wrapped(event)
     end)
 
     -- Adding UI things:
@@ -256,6 +288,11 @@ registerForEvent("onInit", function()
 
     Override("SettingsMainGameController", "PopulateCategorySettingsOptions", function (this, idx, wrapped) -- Add actual settings options
         if nativeSettings.fromMods and nativeSettings.tabSizeCache then -- Dont spawn options for the tab size cache phase, to avoid ghost options
+            if nativeSettings.nextPageFirstTabLoad then
+                nativeSettings.nextPageFirstTabLoad = false
+                return
+            end
+
             this:PopulateSettingsData()
             nativeSettings.saveScrollPos()
             nativeSettings.callCurrentTabClosedCallback()
@@ -467,18 +504,6 @@ registerForEvent("onInit", function()
         data.callback()
     end)
 
-    Override("SettingsSelectorController", "OnShortcutPress", function (this, event, wrapped) -- Override to avoid the button widget's underlying switch widget from showing
-        if nativeSettings.fromMods then
-            local data = nativeSettings.getOptionTable(this)
-            if not data or data.type ~= "button" then
-                return wrapped(event)
-            end
-
-            if data.type == "button" then return end
-        end
-        return wrapped(event)
-    end)
-
     Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
@@ -522,6 +547,14 @@ registerForEvent("onInit", function()
                 tabIndex = tabIndex + #nativeSettings.tabSizeCache[i]
             end
 
+            if nativeSettings.data[nativeSettings.currentTabPath].restoreDefaultsCallback ~= nil then
+                nativeSettings.data[nativeSettings.currentTabPath].restoreDefaultsCallback()
+            end
+
+            if nativeSettings.data[nativeSettings.currentTabPath].overrideNativeRestoreDefaults then
+                return
+            end
+
             local settingsCategory = (this.data[tabIndex].groupPath.value):gsub("/", "")
 
             for _, o in pairs(nativeSettings.data[settingsCategory].options) do
@@ -542,7 +575,7 @@ registerForEvent("onInit", function()
         end
     end)
 
-    print("[NativeSettings] NativeSettings lib initialized!")
+    print("[NativeSettings] NativeSettings lib v." .. nativeSettings.version .. " initialized!")
 end)
 
 registerForEvent("onUpdate", function(deltaTime)
@@ -990,6 +1023,13 @@ function nativeSettings.setOption(tab, value) -- Use this to set an options valu
     if not success then print(string.format("[NativeSettings] Could not set the option for \"%s\" correctly, the provided options table could not be found!", tab.label)) end
 end
 
+function nativeSettings.registerRestoreDefaultsCallback(path, overrideNativeRestoreDefaults, callback) -- Use this to have your function called when the user restores defaults. If overrideNativeRestoreDefaults is false then Native Settings will restore defaults as normal after the callback is called.
+    path = path:gsub("/", "")
+
+    nativeSettings.data[path].overrideNativeRestoreDefaults = overrideNativeRestoreDefaults
+    nativeSettings.data[path].restoreDefaultsCallback = callback
+end
+
 function nativeSettings.refresh() -- Refreshes the UI, e.g. after adding / removing widgets. Not needed anymore as of version 1.4
     if not nativeSettings.fromMods then return end
     if not nativeSettings.settingsMainController then return end
@@ -1145,8 +1185,6 @@ function nativeSettings.spawnButton(this, option, idx)
     end
 
     currentItem.LabelText:SetText(option.label)
-    currentItem.onState:SetVisible(false)
-    currentItem.offState:SetVisible(false)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
 
@@ -1168,8 +1206,21 @@ function nativeSettings.spawnButton(this, option, idx)
     text:SetText(option.buttonText)
     text:Reparent(anchor, -1)
 
-    -- this.onState:SetEnabled(false)
-    -- this.offState:SetEnabled(false)
+    -- Hide parts from the original switch widget
+    local root = currentItem:GetRootWidget():GetWidgetByPath(BuildWidgetPath({"layout", "container"}))
+    local on = root:GetWidgetByPath(BuildWidgetPath({"onState", "body"}))
+    local off = root:GetWidgetByPath(BuildWidgetPath({"onState", "body"}))
+    on:GetWidgetByPath(BuildWidgetPath({"button"})):SetVisible(false)
+    on:GetWidgetByPath(BuildWidgetPath({"txtValue"})):SetVisible(false)
+    on:GetWidgetByPath(BuildWidgetPath({"buttonBorder"})):SetVisible(false)
+
+    off:GetWidgetByPath(BuildWidgetPath({"button"})):SetVisible(false)
+    off:GetWidgetByPath(BuildWidgetPath({"txtValue"})):SetVisible(false)
+    off:GetWidgetByPath(BuildWidgetPath({"buttonBorder"})):SetVisible(false)
+
+    -- Avoid toggle left / right callbacks resulting in the switch widget showing up again
+    currentItem.offStateBody:UnregisterFromCallback("OnRelease", currentItem, "OnLeft")
+    currentItem.onStateBody:UnregisterFromCallback("OnRelease", currentItem, "OnRight")
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -1328,34 +1379,78 @@ function nativeSettings.callCurrentTabClosedCallback()
     end
 end
 
-function nativeSettings.switchToNextPage(settingsController)
+function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
+    if not nativeSettings.tabSizeCache then return end
+    if nativeSettings.currentPage == #nativeSettings.tabSizeCache and #nativeSettings.tabSizeCache > 1 then
+        -- Wrap around to first page
+        nativeSettings.currentPage = 0
+        nativeSettings.previousButton.root:SetVisible(false)
+    end
+
     nativeSettings.currentPage = nativeSettings.currentPage + 1
     nativeSettings.currentPage = math.min(#nativeSettings.tabSizeCache, nativeSettings.currentPage)
     nativeSettings.switchPage = true
 
     if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
         nativeSettings.nextButton.root:SetVisible(false)
-        nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.previousButton then
+            nativeSettings.previousButton.root:SetVisible(true)
+        end
     else
         nativeSettings.nextButton.root:SetVisible(true)
-        nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.previousButton and not (nativeSettings.currentPage == 1) then
+            nativeSettings.previousButton.root:SetVisible(true)
+        end
     end
 
+    if fromNextMenu then
+        nativeSettings.nextPageFirstTabLoad = true
+    end
     settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
 end
 
-function nativeSettings.switchToPreviousPage(settingsController)
+function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
+    if not nativeSettings.tabSizeCache then return end
+    if nativeSettings.currentPage == 1 and #nativeSettings.tabSizeCache > 1 then
+        -- Wrap around to last page
+        nativeSettings.currentPage = #nativeSettings.tabSizeCache + 1
+        nativeSettings.nextButton.root:SetVisible(false)
+    end
+
+    local startingPage = nativeSettings.currentPage
     nativeSettings.currentPage = nativeSettings.currentPage - 1
     nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
+
+    if startingPage == nativeSettings.currentPage then
+        return
+    end
+
     nativeSettings.switchPage = true
+    nativeSettings.switchPreviousPage = true
+
     if nativeSettings.currentPage == 1 then
         nativeSettings.previousButton.root:SetVisible(false)
-        nativeSettings.nextButton.root:SetVisible(true)
+        if nativeSettings.nextButton then
+            nativeSettings.nextButton.root:SetVisible(true)
+        end
     else
-        nativeSettings.nextButton.root:SetVisible(true)
         nativeSettings.previousButton.root:SetVisible(true)
+        if nativeSettings.nextButton and not (nativeSettings.currentPage == #nativeSettings.tabSizeCache) then
+            nativeSettings.nextButton.root:SetVisible(true)
+        end
     end
-    settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
+
+    if nativeSettings.tabSizeCache then
+        local idx
+        if fromPriorMenu then
+            idx = #nativeSettings.tabSizeCache[nativeSettings.currentPage]
+        else
+            idx = #nativeSettings.tabSizeCache[nativeSettings.currentPage] - 1
+        end
+        settingsController:PopulateCategories(idx)
+    else
+        settingsController:PopulateCategories(settingsController.settings:GetMenuIndex())
+    end
 end
 
 return nativeSettings
