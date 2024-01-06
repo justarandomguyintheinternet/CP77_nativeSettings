@@ -19,7 +19,7 @@ local nativeSettings = {
     lastNativeSettingsCategoryIndex = 0,
     lastSettingsCategoryIndex = 0,
     fromInit = false,
-    version = 1.95,
+    version = 1.96,
     Cron = require("Cron")
 }
 
@@ -48,7 +48,7 @@ registerForEvent("onInit", function()
         if button then
             button:SetMargin(5000, 5000, 5000, 5000)
         end
-        
+
         local button = rootWidget:GetWidgetByPath(BuildWidgetPath({ "wrapper", "extra", "hdr_btn"}))
         if button then
             button:SetMargin(5000, 5000, 5000, 5000)
@@ -298,7 +298,7 @@ registerForEvent("onInit", function()
                 nativeSettings.nextPageFirstTabLoad = false
                 return
             end
-            
+
             this:PopulateSettingsData()
             nativeSettings.saveScrollPos()
             nativeSettings.callCurrentTabClosedCallback()
@@ -510,18 +510,6 @@ registerForEvent("onInit", function()
         data.callback()
     end)
 
-    Override("SettingsSelectorController", "OnShortcutPress", function (this, event, wrapped) -- Override to avoid the button widget's underlying switch widget from showing
-        if nativeSettings.fromMods then
-            local data = nativeSettings.getOptionTable(this)
-            if not data or data.type ~= "button" then
-                return wrapped(event)
-            end
-
-            if data.type == "button" then return end
-        end
-        return wrapped(event)
-    end)
-
     Observe("SettingsSelectorControllerKeyBinding", "SetValue", function(this, key) -- Handle keybinding widget press
         if not nativeSettings.fromMods then return end
         local data = nativeSettings.getOptionTable(this)
@@ -593,7 +581,7 @@ registerForEvent("onInit", function()
         end
     end)
 
-    print("[NativeSettings] NativeSettings lib initialized!")
+    print("[NativeSettings] NativeSettings lib v." .. nativeSettings.version .. " initialized!")
 end)
 
 registerForEvent("onUpdate", function(deltaTime)
@@ -1203,8 +1191,6 @@ function nativeSettings.spawnButton(this, option, idx)
     end
 
     currentItem.LabelText:SetText(option.label)
-    currentItem.onState:SetVisible(false)
-    currentItem.offState:SetVisible(false)
     currentItem:RegisterToCallback("OnHoverOver", this, "OnSettingHoverOver")
     currentItem:RegisterToCallback("OnHoverOut", this, "OnSettingHoverOut")
 
@@ -1226,8 +1212,21 @@ function nativeSettings.spawnButton(this, option, idx)
     text:SetText(option.buttonText)
     text:Reparent(anchor, -1)
 
-    -- this.onState:SetEnabled(false)
-    -- this.offState:SetEnabled(false)
+    -- Hide parts from the original switch widget
+    local root = currentItem:GetRootWidget():GetWidgetByPath(BuildWidgetPath({"layout", "container"}))
+    local on = root:GetWidgetByPath(BuildWidgetPath({"onState", "body"}))
+    local off = root:GetWidgetByPath(BuildWidgetPath({"onState", "body"}))
+    on:GetWidgetByPath(BuildWidgetPath({"button"})):SetVisible(false)
+    on:GetWidgetByPath(BuildWidgetPath({"txtValue"})):SetVisible(false)
+    on:GetWidgetByPath(BuildWidgetPath({"buttonBorder"})):SetVisible(false)
+
+    off:GetWidgetByPath(BuildWidgetPath({"button"})):SetVisible(false)
+    off:GetWidgetByPath(BuildWidgetPath({"txtValue"})):SetVisible(false)
+    off:GetWidgetByPath(BuildWidgetPath({"buttonBorder"})):SetVisible(false)
+
+    -- Avoid toggle left / right callbacks resulting in the switch widget showing up again
+    currentItem.offStateBody:UnregisterFromCallback("OnRelease", currentItem, "OnLeft")
+    currentItem.onStateBody:UnregisterFromCallback("OnRelease", currentItem, "OnRight")
 
     this.settingsElements = nativeSettings.nativeInsert(this.settingsElements, currentItem)
 
@@ -1395,12 +1394,12 @@ function nativeSettings.switchToNextPage(settingsController, fromNextMenu)
     if nativeSettings.currentPage == #nativeSettings.tabSizeCache then
         nativeSettings.nextButton.root:SetVisible(false)
         if nativeSettings.previousButton then
-            nativeSettings.previousButton.root:SetVisible(true)    
+            nativeSettings.previousButton.root:SetVisible(true)
         end
     else
         nativeSettings.nextButton.root:SetVisible(true)
         if nativeSettings.previousButton then
-            nativeSettings.previousButton.root:SetVisible(true)    
+            nativeSettings.previousButton.root:SetVisible(true)
         end
     end
 
@@ -1415,7 +1414,7 @@ function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
     local startingPage = nativeSettings.currentPage
     nativeSettings.currentPage = nativeSettings.currentPage - 1
     nativeSettings.currentPage = math.max(1, nativeSettings.currentPage)
-    
+
     if startingPage == nativeSettings.currentPage then
         return
     end
@@ -1434,7 +1433,7 @@ function nativeSettings.switchToPreviousPage(settingsController, fromPriorMenu)
             nativeSettings.nextButton.root:SetVisible(true)
         end
     end
-    
+
     if nativeSettings.tabSizeCache then
         local idx
         if fromPriorMenu then
