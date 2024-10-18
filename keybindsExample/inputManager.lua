@@ -33,7 +33,7 @@ function input.onInit()
 
     input.inputListener = NewProxy({
         OnKeyInput = { -- https://github.com/psiberx/cp2077-codeware/wiki#game-events
-            args = {'whandle:KeyInputEvent'},
+            args = {'handle:KeyInputEvent'},
             callback = handleInput
         }
     })
