@@ -19,7 +19,7 @@ A small mod for Cyberpunk 2077 that allows other mods to easily add settings opt
 - `label` is what will be displayed
 - `callbackFunction` is an optional function parameter that gets called when the tab gets closed
 	```lua
-	nativeSettings.addTab("/myMod", "My mod", callbackFunction()) -- Add a tab (path, label, callback)
+	nativeSettings.addTab("/myMod", "My mod", callbackFunction) -- Add a tab (path, label, callback)
 	```
 
 ### Add a new subcategory:
